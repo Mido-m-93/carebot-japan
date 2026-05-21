@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaser Jamal - Credits & Experience</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --accent: #FB6F4A;
+            --accent2: #F9C373;
+            --glass: rgba(255,255,255,0.03);
+            --border: rgba(255,255,255,0.08);
+            --text-muted: rgba(255,255,255,0.5);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #000;
+            color: #fff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Particles canvas */
+        #particles {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Background shapes */
+        .bg-shapes {
+            position: fixed;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.04;
+            animation: float 22s infinite ease-in-out;
+        }
+        .shape-1 { width: 500px; height: 500px; background: #FB6F4A; top: -150px; left: -150px; animation-delay: 0s; }
+        .shape-2 { width: 350px; height: 350px; background: #F9C373; bottom: -100px; right: -100px; animation-delay: 6s; }
+        .shape-3 { width: 280px; height: 280px; background: #fff; top: 40%; left: 35%; animation-delay: 12s; }
+        @keyframes float {
+            0%,100% { transform: translate(0,0) scale(1); }
+            25% { transform: translate(60px,50px) scale(1.08); }
+            50% { transform: translate(-30px,80px) scale(0.92); }
+            75% { transform: translate(70px,-40px) scale(1.04); }
+        }
+
+        /* Nav buttons */
+        .nav-buttons {
+            position: fixed;
+            top: 2rem;
+            left: 0; right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 2.5rem;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .nav-btn {
+            pointer-events: all;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.7rem 1.4rem;
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 50px;
+            color: rgba(255,255,255,0.8);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            opacity: 0;
+            animation: fadeInDown 0.7s ease forwards 0.1s;
+        }
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.3);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255,255,255,0.1);
+        }
+        .nav-btn svg { width: 16px; height: 16px; fill: currentColor; }
+        .nav-btn.home-btn { opacity: 0; animation: fadeInDown 0.7s ease forwards 0.2s; }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Main content */
+        .page-wrapper {
+            position: relative;
+            z-index: 10;
+            padding: 7rem 2rem 5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Page header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 4rem;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease forwards 0.3s;
+        }
+        .page-header .subtitle {
+            font-size: 0.85rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+        }
+        .page-header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.6));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+        .header-line {
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            margin: 0 auto;
+            border-radius: 2px;
+        }
+
+        /* Category tabs */
+        .category-tabs {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3.5rem;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease forwards 0.5s;
+        }
+        .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1.2rem;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.35s ease;
+        }
+        .tab-btn svg { width: 14px; height: 14px; fill: currentColor; }
+        .tab-btn:hover, .tab-btn.active {
+            background: rgba(251,111,74,0.1);
+            border-color: rgba(251,111,74,0.4);
+            color: var(--accent);
+        }
+        .tab-btn.active {
+            box-shadow: 0 0 20px rgba(251,111,74,0.15);
+        }
+
+        /* Credits section */
+        .credits-section {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .credits-section.visible {
+            display: block;
+        }
+        .credits-section.animated {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Section title */
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .section-title svg { width: 20px; height: 20px; fill: var(--accent); opacity: 0.8; }
+        .section-title h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.9);
+        }
+        .section-count {
+            margin-left: auto;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.7rem;
+            border-radius: 20px;
+        }
+
+        /* Credit cards grid */
+        .credits-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        /* Credit card */
+        .credit-card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.2rem;
+            display: flex;
+            gap: 1.2rem;
+            align-items: flex-start;
+            cursor: pointer;
+            transition: all 0.45s cubic-bezier(0.4,0,0.2,1);
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(25px);
+        }
+        .credit-card.in-view {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .credit-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, var(--accent), var(--accent2));
+            transform: scaleY(0);
+            transform-origin: bottom;
+            transition: transform 0.4s ease;
+            border-radius: 0 2px 2px 0;
+        }
+        .credit-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.02), transparent);
+            transition: left 0.6s ease;
+        }
+        .credit-card:hover::before { transform: scaleY(1); }
+        .credit-card:hover::after { left: 100%; }
+        .credit-card:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.15);
+            transform: translateX(4px) translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4), -4px 0 20px rgba(251,111,74,0.08);
+        }
+
+        /* Thumbnail */
+        .credit-thumbnail {
+            width: 72px;
+            height: 72px;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
+            position: relative;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+        }
+        .credit-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(30%) contrast(1.05);
+            transition: filter 0.4s ease, transform 0.4s ease;
+        }
+        .credit-card:hover .credit-thumbnail img {
+            filter: grayscale(0%) contrast(1.1);
+            transform: scale(1.05);
+        }
+        .thumb-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(251,111,74,0.15), transparent);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .credit-card:hover .thumb-overlay { opacity: 1; }
+
+        /* Credit info */
+        .credit-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .credit-date {
+            font-size: 0.7rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+        .credit-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.25rem;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .credit-role {
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.15rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-main { background: rgba(251,111,74,0.15); color: var(--accent); border: 1px solid rgba(251,111,74,0.3); }
+        .badge-sub { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); border: 1px solid var(--border); }
+        .badge-support { background: rgba(249,195,115,0.1); color: var(--accent2); border: 1px solid rgba(249,195,115,0.25); }
+
+        .credit-meta {
+            font-size: 0.73rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .credit-meta span { display: flex; align-items: center; gap: 0.3rem; }
+        .credit-meta svg { width: 11px; height: 11px; fill: var(--text-muted); opacity: 0.6; }
+
+        .credit-link {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+            align-self: center;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: var(--text-muted);
+        }
+        .credit-link:hover {
+            background: rgba(251,111,74,0.1);
+            border-color: rgba(251,111,74,0.3);
+            color: var(--accent);
+        }
+        .credit-link svg { width: 14px; height: 14px; fill: currentColor; }
+        .credit-link.no-link { opacity: 0.3; pointer-events: none; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(25px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* All sections wrapper */
+        .all-sections { display: none; }
+        .all-sections.visible { display: block; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .page-header h1 { font-size: 2.5rem; }
+            .nav-buttons { padding: 0 1.2rem; }
+            .nav-btn { padding: 0.6rem 1rem; font-size: 0.72rem; }
+            .credit-thumbnail { width: 58px; height: 58px; }
+            .credit-title { font-size: 0.88rem; }
+            .page-wrapper { padding: 6rem 1.2rem 4rem; }
+        }
+        @media (max-width: 480px) {
+            .page-header h1 { font-size: 2rem; }
+            .category-tabs { gap: 0.4rem; }
+            .tab-btn { padding: 0.45rem 0.9rem; font-size: 0.72rem; }
+            .credit-thumbnail { width: 50px; height: 50px; border-radius: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-shapes">
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+</div>
+<canvas id="particles"></canvas>
+
+<!-- Navigation -->
+<div class="nav-buttons">
+    <a href="scenes.html" class="nav-btn back-btn">
+        <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        Scenes
+    </a>
+    <a href="index.html" class="nav-btn home-btn">
+        Home
+        <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    </a>
+</div>
+
+<div class="page-wrapper">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="subtitle">Actor • Content Creator • Tokyo</div>
+        <h1>Credits & Experience</h1>
+        <div class="header-line"></div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="category-tabs">
+        <button class="tab-btn active" data-section="all">
+            <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+            All
+        </button>
+        <button class="tab-btn" data-section="theater">
+            <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9z"/></svg>
+            Theater
+        </button>
+        <button class="tab-btn" data-section="film">
+            <svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>
+            Film
+        </button>
+        <button class="tab-btn" data-section="television">
+            <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
+            TV
+        </button>
+        <button class="tab-btn" data-section="video">
+            <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            Video
+        </button>
+        <button class="tab-btn" data-section="commercials">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+            Commercials
+        </button>
+        <button class="tab-btn" data-section="modeling">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            Modeling
+        </button>
+        <button class="tab-btn" data-section="online">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+            Online
+        </button>
+    </div>
+
+    <!-- Credits Content -->
+    <div id="credits-container"></div>
+</div>
+
+<script>
+const THUMB = "https://meguri-kaigo.com/wp-content/uploads/2026/02/dd47ea32-2139-483d-9901-da1d5902f2e8-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg";
+
+const data = {
+    theater: {
+        icon: `<svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9z"/></svg>`,
+        label: "Theater",
+        items: [
+            { date: "APR 2021", title: "Stage 『MOTHER』 戦後76年を飛び越えて 2021", role: "Sub Cast", type: "sub", company: "Stage / 舞台 MOTHER", location: "Tokyo", url: "" },
+            { date: "MAR 2025", title: "Stage 『MOTHER』 戦後76年を飛び越えて 2025", role: "Sub Cast", type: "sub", company: "", location: "Tokyo New National Theatre", url: "" },
+        ]
+    },
+    film: {
+        icon: `<svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>`,
+        label: "Film",
+        items: [
+            { date: "", title: "Gift (Short Movie)", role: "Main Role", type: "main", company: "Yuichiro Nakda", location: "Tokyo", url: "" },
+            { date: "OCT 2023", title: "The Search (Short Movie)", role: "Main Role (as Content Creator)", type: "main", company: "Suyorukun × Epidemic Sound", location: "Tokyo, Oshima", url: "https://www.youtube.com/watch?v=-2QLUDAFXLA" },
+            { date: "2021", title: "散歩時間　その日を待ちながら", role: "Sub Cast (Japanese Lines)", type: "sub", company: "戸田彬弘", location: "", url: "https://eiga.com/amp/movie/97674/" },
+            { date: "", title: "Way to Find the Best Life", role: "Side Character", type: "sub", company: "犬童一心 / Toho Studios", location: "Tokyo", url: "https://pro.imdb.com/title/tt9618836/" },
+            { date: "", title: "Eiga Osomatsusan", role: "Side Character", type: "sub", company: "Tsutomu Hanabusa / Amazon Prime", location: "Tokyo", url: "https://pro.imdb.com/title/tt15162634/" },
+            { date: "DEC 2023", title: "Minato no Tomoshibi", role: "Sub Cast", type: "sub", company: "Michihito Fujii", location: "", url: "https://www.tohostudio.jp/en/" },
+            { date: "2023", title: "Trillion Games", role: "Supporting Role (Personal Bodyguard)", type: "support", company: "Yoshiaki Murao / TBS Production", location: "", url: "https://www.tbs.co.jp/" },
+            { date: "2023", title: "Shonen to Inu (少年と犬)", role: "Sub Cast (Gang Leader)", type: "sub", company: "Takahisa Zeze / TBS Production", location: "", url: "https://www.tbs.co.jp/" },
+            { date: "OCT 2024", title: "Romantic Killer 2025", role: "Referee Role (Comedy)", type: "sub", company: "Tsutomu Hanabusa", location: "Tokyo", url: "" },
+            { date: "NOV 2024", title: "Nikon Z6 III Camera Short Movie — Vision", role: "Main", type: "main", company: "Suyorukun", location: "", url: "https://youtu.be/OxuYCjI8jtA" },
+        ]
+    },
+    television: {
+        icon: `<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>`,
+        label: "Television",
+        items: [
+            { date: "", title: "No Activity Drama", role: "Sub Cast in 5 Episodes", type: "sub", company: "Amazon Prime", location: "Tokyo", url: "https://pro.imdb.com/title/tt15978444/" },
+            { date: "2023", title: "Knocking on Locked Door Drama", role: "Sub Cast — Ep. 2", type: "sub", company: "Yukihiko Tsutsumi / Asahi TV", location: "Tokyo", url: "https://www.tv-asahi.co.jp/knockin_on_locked_door/" },
+            { date: "", title: "Toppa File", role: "Sub Main", type: "sub", company: "TV Tokyo", location: "Tokyo", url: "https://www.ntv.co.jp/toppa/" },
+            { date: "", title: "ありえへん∞世界", role: "Different Roles in Many Episodes", type: "sub", company: "TV Tokyo", location: "", url: "https://www.tv-tokyo.co.jp/ariehen/" },
+            { date: "", title: "Unbelievable", role: "Different Roles in Many Episodes", type: "sub", company: "Fuji TV", location: "", url: "https://www.fujitv.co.jp/unb/index.html" },
+            { date: "", title: "Old Rookie Drama", role: "Side Character (Soccer Player)", type: "sub", company: "", location: "Tokyo", url: "" },
+            { date: "", title: "Vocab Rider (Variety Program)", role: "Side Character", type: "sub", company: "NHK", location: "", url: "https://www.nhk.or.jp/gogaku/vr/" },
+            { date: "OCT 2024", title: "BITWORLD TV Show", role: "Special Guest — Gladiator", type: "support", company: "NHK E Tele", location: "NHK Studios", url: "" },
+            { date: "SEP 2024", title: "Waruiko Atsumare", role: "Business Man (Japanese Lines)", type: "sub", company: "NHK", location: "Tokyo", url: "" },
+            { date: "MAR 2025", title: "NHK Mini Drama (Japanese Lines)", role: "Sub Main Cast (Chain Company Founder)", type: "sub", company: "NHK", location: "Tokyo", url: "" },
+        ]
+    },
+    video: {
+        icon: `<svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`,
+        label: "Music Video",
+        items: [
+            { date: "JUN 2023", title: "Nulbarich — DAY feat. PUNPEE (Official MV)", role: "Main Role", type: "main", company: "Maxilla Japan", location: "Tokyo", url: "https://maxilla.jp/en" },
+            { date: "OCT 2023", title: "BREIMEN「RUNTIKI」Music Video", role: "Sub Cast (American Football Player)", type: "sub", company: "BREIMEN", location: "", url: "https://brei.men/" },
+            { date: "NOV 2023", title: "Kitani Tatsuya Music Video", role: "Sub Cast (Karate Player)", type: "sub", company: "Kitani Tatsuya", location: "", url: "https://tatsuyakitani.com/" },
+            { date: "FEB 2024", title: "Snow Man (Raul) Concert Promo", role: "Sub Cast", type: "sub", company: "Snow Man / Raul", location: "", url: "" },
+            { date: "MAY 2023", title: "Music Video for Miss Mercy Idol Group", role: "Sub Cast (Turkish Ice Cream Fighter)", type: "sub", company: "Miss Mercy", location: "Tokyo", url: "https://missmercy.jp/" },
+        ]
+    },
+    commercials: {
+        icon: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>`,
+        label: "Commercials & Industrials",
+        items: [
+            { date: "", title: "Evian Water CM", role: "Main Role", type: "main", company: "Evian", location: "Tokyo", url: "" },
+            { date: "NOV", title: "Nikon Lenswear CM", role: "Main", type: "main", company: "Nikon Lenswear", location: "Japan", url: "" },
+            { date: "", title: "Nissin Noodles CM", role: "Sub Main", type: "sub", company: "Nissin 日清", location: "Tokyo", url: "" },
+            { date: "", title: "Gatsby Hair Product CM", role: "Side Character", type: "sub", company: "Gatsby", location: "Tokyo", url: "" },
+            { date: "", title: "Sony PCL Studio CM", role: "Sub Cast (Mafia Boss)", type: "sub", company: "Sony PCL", location: "Tokyo", url: "https://www.sonypcl.jp/" },
+            { date: "SEP 2023", title: "Yayoiken CM", role: "Sub Cast", type: "sub", company: "Yayoiken", location: "", url: "https://www.yayoiken.com" },
+            { date: "", title: "M&A Best Partners CM", role: "Sub Cast", type: "sub", company: "M&A Best Partners", location: "", url: "https://mabp.jp/" },
+            { date: "SEP 2023", title: "NTT Group Company CM", role: "Sub Cast (Doctor Role)", type: "sub", company: "NTT", location: "Daiei Studios", url: "" },
+            { date: "SEP 2023", title: "SoftBank (PayPay) CM", role: "Sub Cast", type: "sub", company: "SoftBank", location: "Studio 246", url: "https://softbank.jp/" },
+            { date: "", title: "Oculus Quest 2 — Biohazard 4", role: "Side Character (Zombie)", type: "sub", company: "Meta", location: "Tokyo", url: "" },
+            { date: "SEP 2023", title: "Mizuho Bank (Lottery) CM", role: "Sub Cast (Singer)", type: "sub", company: "Kurosawa Film Studio", location: "", url: "https://www.kurosawafilmstudio.com/" },
+            { date: "FEB 2024", title: "NewMo Service CM", role: "Sub Cast", type: "sub", company: "NewMo", location: "Yokohama", url: "https://newmo.me/" },
+            { date: "", title: "Rakuten Mobile (iPhone 14 Pro) CM", role: "Recurring Character", type: "support", company: "Rakuten", location: "", url: "" },
+            { date: "", title: "Rakuten Card CM", role: "Side Character (Soccer Player)", type: "sub", company: "Rakuten", location: "Tokyo", url: "" },
+            { date: "", title: "Eta Choco CM 板チョコ", role: "Side Character (Knight Role)", type: "sub", company: "Morinaga", location: "", url: "https://www.morinaga.co.jp/ice/itachoco/" },
+            { date: "JUN 2024", title: "Capcom CM", role: "Sub Cast", type: "sub", company: "EN Studios", location: "Tokyo", url: "" },
+            { date: "APR 2024", title: "PockeTalk CM", role: "Sub Cast", type: "sub", company: "PockeTalk", location: "Tokyo", url: "" },
+            { date: "OCT 2024", title: "Nishitan Clinic CM", role: "Sub Cast", type: "sub", company: "Tree Digital Studio", location: "Yokohama", url: "" },
+            { date: "2024", title: "Qiddiya City Cyberpunk CM", role: "Sub Cast (Game Character)", type: "sub", company: "Tree Digital Studio", location: "Tokyo", url: "" },
+            { date: "OCT 2024", title: "NIKON CES", role: "Sub Cast", type: "sub", company: "Nikon", location: "", url: "https://www.jp.nikon.com/ces2024/" },
+            { date: "OCT 2024", title: "Nomura Group Company CM", role: "Sub Cast (Business Man)", type: "sub", company: "Nomura Holdings", location: "", url: "https://www.nomuraholdings.com/" },
+            { date: "FEB 2025", title: "Shichiken Sake CM", role: "Main Cast (Tourist Role)", type: "main", company: "", location: "Tokyo", url: "" },
+            { date: "JAN 2025", title: "BEYBLADE X CM", role: "Featured Extra — Gamer", type: "sub", company: "Takara Tomy", location: "Tokyo", url: "https://beyblade.takaratomy.co.jp/" },
+            { date: "MAY 2025", title: "Aioi Nissay Dowa Insurance CM", role: "Main Role (Driver)", type: "main", company: "Aioi Nissay Dowa", location: "Shizuoka Prefecture", url: "https://www.aioinissaydowa.co.jp/english/" },
+            { date: "JUL 2025", title: "Pairs (Matching App) CM", role: "Sub Main (Spy)", type: "sub", company: "Pairs", location: "Tokyo", url: "" },
+            { date: "AUG 2025", title: "SMBC Bank CM", role: "Sub Cast — Hotel Porter", type: "sub", company: "SMBC Bank", location: "", url: "" },
+        ]
+    },
+    modeling: {
+        icon: `<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`,
+        label: "Modeling",
+        items: [
+            { date: "", title: "Adobe Stock Photo", role: "Main Role", type: "main", company: "Hirokazu Eriguchi", location: "Tokyo", url: "" },
+            { date: "", title: "Maison de Chaos", role: "Sub Model", type: "sub", company: "Maison de Chaos", location: "Tokyo", url: "https://twitter.com/maison_de_chaos" },
+            { date: "", title: "Honey Bear", role: "Sub Model", type: "sub", company: "Honey Bear", location: "Tokyo", url: "https://honeybear.jp/" },
+            { date: "", title: "Mandom Gallery", role: "Sub Model", type: "sub", company: "Mandom", location: "Tokyo", url: "https://www.mandom.co.jp/en/" },
+        ]
+    },
+    online: {
+        icon: `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`,
+        label: "Online & Multimedia",
+        items: [
+            { date: "", title: "PR for Hakone", role: "Main Role", type: "main", company: "Naoyuki Matsudaira", location: "Hakone, Japan", url: "https://www.youtube.com/watch?v=CgVbTk6fzx8&t=200s" },
+            { date: "", title: "PR Video — Tokyo Business Events", role: "Main Role", type: "main", company: "TCVB (Tokyo Convention & Visitors Bureau)", location: "Tokyo", url: "https://www.tcvb.or.jp/en/" },
+            { date: "", title: "Konami Motion Capture — Winning Eleven 2022", role: "Soccer Player", type: "sub", company: "Toei Studios", location: "", url: "" },
+            { date: "", title: "NICT PR Video", role: "Sub Main", type: "sub", company: "NICT", location: "Tokyo", url: "https://www2.nict.go.jp/publicity/pr-movie/" },
+            { date: "JUN 2024", title: "Pranking Bokuao Idol Leader 'Shiogama Nana'", role: "Main — As American Movie Director", type: "main", company: "Bokuao", location: "Tokyo", url: "https://www.youtube.com/@BOKUAO_official/featured" },
+            { date: "2024", title: "Miiru Pa みいるパ (Tokyo TV YouTube Program)", role: "Painter (Comedy Video)", type: "sub", company: "Tokyo TV", location: "", url: "" },
+        ]
+    }
+};
+
+function getBadgeClass(type) {
+    if (type === "main") return "badge-main";
+    if (type === "support") return "badge-support";
+    return "badge-sub";
+}
+
+function buildCard(item) {
+    const hasLink = item.url && item.url.trim() !== "";
+    return `
+        <div class="credit-card" ${hasLink ? `onclick="if(event.target.closest('.credit-link')){return;}window.open('${item.url}','_blank')"` : ""}>
+            <div class="credit-thumbnail">
+                <img src="${THUMB}" alt="${item.title}" loading="lazy">
+                <div class="thumb-overlay"></div>
+            </div>
+            <div class="credit-info">
+                ${item.date ? `<div class="credit-date">${item.date}</div>` : ''}
+                <div class="credit-title">${item.title}</div>
+                <div class="credit-role">
+                    <span class="role-badge ${getBadgeClass(item.type)}">${item.role}</span>
+                </div>
+                <div class="credit-meta">
+                    ${item.company ? `<span><svg viewBox="0 0 24 24"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg>${item.company}</span>` : ''}
+                    ${item.location ? `<span><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>${item.location}</span>` : ''}
+                </div>
+            </div>
+            <a href="${hasLink ? item.url : '#'}" target="_blank" class="credit-link ${!hasLink ? 'no-link' : ''}" onclick="event.stopPropagation()">
+                <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+            </a>
+        </div>
+    `;
+}
+
+function buildSection(key, sec) {
+    return `
+        <div class="credits-section" data-section="${key}">
+            <div class="section-title">
+                ${sec.icon}
+                <h2>${sec.label}</h2>
+                <span class="section-count">${sec.items.length} credits</span>
+            </div>
+            <div class="credits-grid">
+                ${sec.items.map(buildCard).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderAll() {
+    const container = document.getElementById('credits-container');
+    let html = '';
+    for (const [key, sec] of Object.entries(data)) {
+        html += buildSection(key, sec);
+    }
+    container.innerHTML = html;
+    showSection('all');
+    setupObserver();
+}
+
+function showSection(active) {
+    const sections = document.querySelectorAll('.credits-section');
+    sections.forEach(s => {
+        s.classList.remove('visible', 'animated');
+        if (active === 'all' || s.dataset.section === active) {
+            s.classList.add('visible');
+            requestAnimationFrame(() => {
+                setTimeout(() => s.classList.add('animated'), 10);
+            });
+        }
+    });
+    // re-observe newly visible cards
+    setTimeout(() => {
+        document.querySelectorAll('.credit-card').forEach(c => c.classList.remove('in-view'));
+        observeCards();
+    }, 50);
+}
+
+let observer;
+function setupObserver() {
+    observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, i) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => entry.target.classList.add('in-view'), i * 45);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.05, rootMargin: '0px 0px -30px 0px' });
+    observeCards();
+}
+
+function observeCards() {
+    document.querySelectorAll('.credits-section.visible .credit-card:not(.in-view)').forEach(c => {
+        observer.observe(c);
+    });
+}
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        showSection(btn.dataset.section);
+    });
+});
+
+renderAll();
+
+// Particles
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+let particles = [];
+class Particle {
+    constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 1.5 + 0.5;
+        this.speedX = Math.random() * 0.4 - 0.2;
+        this.speedY = Math.random() * 0.4 - 0.2;
+        this.opacity = Math.random() * 0.4 + 0.1;
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.x > canvas.width || this.x < 0) this.speedX *= -1;
+        if (this.y > canvas.height || this.y < 0) this.speedY *= -1;
+    }
+    draw() {
+        ctx.fillStyle = `rgba(255,255,255,${this.opacity * 0.25})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+for (let i = 0; i < 60; i++) particles.push(new Particle());
+(function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => { p.update(); p.draw(); });
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const d = Math.sqrt(dx*dx + dy*dy);
+            if (d < 120) {
+                ctx.strokeStyle = `rgba(255,255,255,${0.07 * (1 - d/120)})`;
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(particles[i].x, particles[i].y);
+                ctx.lineTo(particles[j].x, particles[j].y);
+                ctx.stroke();
+            }
+        }
+    }
+    requestAnimationFrame(animate);
+})();
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>

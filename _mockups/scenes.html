@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaser Jamal - Scenes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;600;700;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --gold: #F9C373;
+            --ember: #FB6F4A;
+            --dim: rgba(255,255,255,0.55);
+            --glass-bg: rgba(255,255,255,0.04);
+            --glass-border: rgba(255,255,255,0.1);
+        }
+        html, body { width:100%; height:100%; overflow-x:hidden; }
+        body { font-family:'Inter',sans-serif; background:#000; color:#fff; min-height:100vh; display:flex; flex-direction:column; }
+
+        /* Background */
+        .bg-gradient { position:fixed; inset:0; background:radial-gradient(ellipse at 20% 50%, #0d0d0d 0%, #000 60%); z-index:0; }
+        .bg-shapes { position:fixed; inset:0; overflow:hidden; z-index:1; }
+        .shape { position:absolute; border-radius:50%; filter:blur(90px); opacity:0.04; animation:float 24s infinite ease-in-out; }
+        .shape-1 { width:500px; height:500px; background:#1a1a1a; top:-120px; left:-120px; animation-delay:0s; }
+        .shape-2 { width:350px; height:350px; background:#1a1a1a; bottom:-60px; right:-60px; animation-delay:6s; }
+        .shape-3 { width:280px; height:280px; background:#1a1a1a; top:45%; left:35%; animation-delay:12s; }
+        @keyframes float {
+            0%,100% { transform:translate(0,0) scale(1); }
+            25%     { transform:translate(40px,40px) scale(1.08); }
+            50%     { transform:translate(-25px,70px) scale(0.92); }
+            75%     { transform:translate(60px,-35px) scale(1.04); }
+        }
+        #particles { position:fixed; inset:0; z-index:2; pointer-events:none; }
+
+        /* Nav Buttons — fixed in corners at all screen sizes */
+        .nav-buttons {
+            position:fixed;
+            top:2rem;
+            left:0; right:0;
+            display:flex;
+            justify-content:space-between;
+            padding:0 2rem;
+            z-index:200;
+            pointer-events:none;
+        }
+        .nav-btn {
+            pointer-events:all;
+            display:inline-flex;
+            align-items:center;
+            gap:0.5rem;
+            padding:0.75rem 1.4rem;
+            background:var(--glass-bg);
+            backdrop-filter:blur(20px);
+            border:1px solid var(--glass-border);
+            border-radius:50px;
+            color:#fff;
+            font-family:'Inter',sans-serif;
+            font-size:0.85rem;
+            font-weight:600;
+            text-decoration:none;
+            transition:all 0.4s ease;
+            cursor:pointer;
+            letter-spacing:0.03em;
+        }
+        .nav-btn:hover { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.3); box-shadow:0 5px 24px rgba(255,255,255,0.12); }
+        .nav-btn.left:hover  { transform:translateX(-5px); }
+        .nav-btn.right:hover { transform:translateX(5px); }
+        .nav-btn svg { width:15px; height:15px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+        /* Header */
+        .header { position:relative; z-index:100; padding:7rem 2rem 1.5rem; text-align:center; opacity:0; animation:fadeInDown 0.8s ease forwards 0.2s; }
+        .page-title { font-family:'Playfair Display',serif; font-size:3.8rem; font-weight:900; color:#fff; margin-bottom:0.3rem; }
+        .page-subtitle { font-size:0.85rem; color:var(--dim); letter-spacing:3px; text-transform:uppercase; }
+
+        /* Stage */
+        .stage-wrapper { position:relative; z-index:10; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:1rem 0 3rem; opacity:0; animation:fadeInUp 0.8s ease forwards 0.5s; }
+        .carousel-scene { width:100%; height:420px; perspective:1400px; perspective-origin:50% 50%; position:relative; overflow:visible; }
+        .carousel-track { position:absolute; inset:0; transform-style:preserve-3d; }
+
+        /* Cards */
+        .c-item { position:absolute; top:50%; left:50%; width:640px; height:360px; margin-top:-180px; margin-left:-320px; border-radius:14px; overflow:hidden; cursor:pointer; transition:transform 0.75s cubic-bezier(0.4,0,0.2,1), opacity 0.75s cubic-bezier(0.4,0,0.2,1), box-shadow 0.75s ease; will-change:transform,opacity; border:1px solid rgba(255,255,255,0.08); background:#0a0a0a; user-select:none; }
+        .c-item.is-active { border-color:rgba(255,255,255,0.18); box-shadow:0 0 0 1px rgba(249,195,115,0.15), 0 30px 80px rgba(0,0,0,0.9), 0 0 60px rgba(249,195,115,0.08); }
+
+        /* Thumbnail */
+        .c-thumb { position:absolute; inset:0; background:#111; display:flex; align-items:center; justify-content:center; transition:opacity 0.4s ease; overflow:hidden; }
+        .c-thumb img { width:100%; height:100%; object-fit:cover; display:block; opacity:0.75; }
+        .thumb-fallback { position:absolute; inset:0; background:linear-gradient(135deg, #0f0f0f 0%, #1c1c1c 50%, #0a0a0a 100%); }
+        .c-thumb::after { content:''; position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%); z-index:1; }
+        .c-thumb .play-icon { position:absolute; z-index:2; width:68px; height:68px; background:rgba(0,0,0,0.55); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,0.35); border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all 0.3s ease; }
+        .c-thumb .play-icon svg { width:26px; height:26px; fill:#fff; margin-left:4px; }
+        .c-item.is-active .c-thumb .play-icon { background:rgba(251,111,74,0.7); border-color:rgba(251,111,74,0.9); transform:scale(1.1); }
+
+        /* Video */
+        .c-video { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity 0.5s ease 0.25s; background:#000; }
+        .c-video video { width:100%; height:100%; object-fit:cover; display:block; outline:none; }
+        .c-item.is-active .c-video { opacity:1; pointer-events:all; }
+        .c-item.is-active .c-thumb { opacity:0; pointer-events:none; }
+
+        /* Glare */
+        .c-glare { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity 0.5s ease; border-radius:14px; }
+        .c-item:not(.is-active) .c-glare { opacity:1; background:linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%); }
+
+        /* Arrows */
+        .arrow-btn { position:absolute; top:50%; transform:translateY(-50%); z-index:200; width:56px; height:56px; background:rgba(255,255,255,0.05); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.12); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.35s ease; }
+        .arrow-btn:hover { background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); box-shadow:0 0 30px rgba(249,195,115,0.2); transform:translateY(-50%) scale(1.08); }
+        .arrow-btn:active { transform:translateY(-50%) scale(0.96); }
+        .arrow-btn svg { width:22px; height:22px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+        .arrow-left  { left:calc(50% - 380px); }
+        .arrow-right { right:calc(50% - 380px); }
+
+        /* Info */
+        .info-panel { margin-top:2.5rem; text-align:center; z-index:100; position:relative; }
+        .info-number { font-family:'Cormorant Garamond',serif; font-size:0.75rem; letter-spacing:4px; color:var(--gold); text-transform:uppercase; margin-bottom:0.5rem; opacity:0.8; }
+        .info-title { font-family:'Playfair Display',serif; font-size:1.7rem; font-weight:700; color:#fff; margin-bottom:0.4rem; transition:opacity 0.35s ease, transform 0.35s ease; }
+        .info-sub { font-size:0.85rem; color:var(--dim); letter-spacing:1px; }
+
+        /* Dots */
+        .dots { display:flex; gap:8px; justify-content:center; margin-top:1.8rem; z-index:100; position:relative; }
+        .dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.25); cursor:pointer; transition:all 0.4s ease; }
+        .dot.active { background:var(--gold); box-shadow:0 0 10px rgba(249,195,115,0.6); transform:scale(1.3); }
+
+        /* Animations */
+        @keyframes fadeInDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeInUp   { from{opacity:0;transform:translateY(20px)}  to{opacity:1;transform:translateY(0)} }
+
+        .key-hint { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); font-size:0.7rem; color:rgba(255,255,255,0.2); letter-spacing:2px; text-transform:uppercase; z-index:100; white-space:nowrap; }
+
+        /* Responsive */
+        @media(max-width:900px) {
+            .carousel-scene{height:300px}
+            .c-item{width:440px;height:248px;margin-top:-124px;margin-left:-220px}
+            .arrow-left{left:calc(50% - 265px)}
+            .arrow-right{right:calc(50% - 265px)}
+            .page-title{font-size:2.8rem}
+        }
+        @media(max-width:640px) {
+            .nav-buttons{padding:0 1.2rem; top:1.5rem;}
+            .nav-btn{padding:0.6rem 1rem; font-size:0.8rem;}
+            .header{padding:6rem 1rem 1rem;}
+            .page-title{font-size:2.2rem}
+            .carousel-scene{height:230px}
+            .c-item{width:320px;height:180px;margin-top:-90px;margin-left:-160px}
+            .arrow-left{left:8px}
+            .arrow-right{right:8px}
+            .arrow-btn{width:44px;height:44px}
+        }
+        @media(max-width:480px) {
+            .nav-buttons{padding:0 1rem; top:1.2rem;}
+            .nav-btn{padding:0.55rem 0.9rem; font-size:0.75rem;}
+            .header{padding:5.5rem 1rem 1rem;}
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-gradient"></div>
+<div class="bg-shapes">
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+</div>
+<canvas id="particles"></canvas>
+
+<!-- Nav Buttons — fixed in corners at all screen sizes -->
+<div class="nav-buttons">
+    <a href="works.html" class="nav-btn left">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        My Works
+    </a>
+    <a href="credits-experience.html" class="nav-btn right">
+        Credits & Experience
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+</div>
+
+<div class="header">
+    <h1 class="page-title">Scenes</h1>
+    <p class="page-subtitle">Behind the Camera &amp; On Screen</p>
+</div>
+
+<div class="stage-wrapper">
+    <div class="carousel-scene" id="carouselScene">
+        <div class="carousel-track" id="carouselTrack"></div>
+        <button class="arrow-btn arrow-left"  id="arrowLeft"  aria-label="Previous">
+            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="arrow-btn arrow-right" id="arrowRight" aria-label="Next">
+            <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+    </div>
+    <div class="info-panel">
+        <div class="info-number" id="infoNumber">01 / 06</div>
+        <h2  class="info-title"  id="infoTitle">Sony PCL Studio CM</h2>
+        <p   class="info-sub"    id="infoSub">Sub Cast &middot; Mafia Boss</p>
+    </div>
+    <div class="dots" id="dots"></div>
+</div>
+
+<div class="key-hint">&#8592; &#8594; Arrow keys &middot; Swipe to navigate</div>
+
+<script>
+// ── VIDEO DATA ──
+const videos = [
+    { src:"scene-1.mov", title:"Sony PCL Studio CM", sub:"Sub Cast · Mafia Boss", thumb:"https://meguri-kaigo.com/wp-content/uploads/2026/02/fe0fce2b-4a0d-4bf4-b5e5-776be5516d9a-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg" },
+    { src:"scene-1.mov", title:"Sony PCL Studio CM", sub:"Sub Cast · Mafia Boss", thumb:"https://meguri-kaigo.com/wp-content/uploads/2026/02/fc5b1eb0-7433-4fd0-9bc3-cbf257922a70-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg" },
+    { src:"scene-1.mov", title:"Sony PCL Studio CM", sub:"Sub Cast · Mafia Boss", thumb:"https://meguri-kaigo.com/wp-content/uploads/2026/02/dd47ea32-2139-483d-9901-da1d5902f2e8-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg" },
+    { src:"scene-1.mov", title:"Sony PCL Studio CM", sub:"Sub Cast · Mafia Boss", thumb:"https://meguri-kaigo.com/wp-content/uploads/2026/02/f7ad272b-6156-47f8-b596-1b4905121610-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg" },
+    { src:"scene-1.mov", title:"Sony PCL Studio CM", sub:"Sub Cast · Mafia Boss", thumb:"https://meguri-kaigo.com/wp-content/uploads/2026/02/a43ac32c-21f9-4b26-8698-b2d56a042eb8-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg" },
+    { src:"scene-1.mov", title:"Sony PCL Studio CM", sub:"Sub Cast · Mafia Boss", thumb:"https://meguri-kaigo.com/wp-content/uploads/2026/02/29ef99a0-5824-4ab5-9fd4-93e03fcafdea-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg" }
+];
+
+// ── CAROUSEL ──
+let activeIndex = 1, isAnimating = false;
+const ANIM_MS   = 750;
+
+const track      = document.getElementById('carouselTrack');
+const dotsEl     = document.getElementById('dots');
+const infoNumber = document.getElementById('infoNumber');
+const infoTitle  = document.getElementById('infoTitle');
+const infoSub    = document.getElementById('infoSub');
+
+// Build cards
+const items = videos.map((v, i) => {
+    const el = document.createElement('div');
+    el.className = 'c-item';
+    el.dataset.index = i;
+    const thumbHTML = v.thumb
+        ? '<img src="' + v.thumb + '" alt="' + v.title + '" loading="lazy">'
+        : '<div class="thumb-fallback"></div>';
+    el.innerHTML =
+        '<div class="c-thumb">' + thumbHTML +
+        '<div class="play-icon"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>' +
+        '</div><div class="c-video"></div><div class="c-glare"></div>';
+    track.appendChild(el);
+    return el;
+});
+
+// Build dots
+videos.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => goTo(i));
+    dotsEl.appendChild(d);
+});
+
+// Position math
+function getTransform(offset) {
+    const abs  = Math.abs(offset);
+    const sign = offset > 0 ? 1 : offset < 0 ? -1 : 0;
+    if (abs === 0) return { tx:0, tz:0, ry:0, scale:1, opacity:1, zIndex:20 };
+    const steps = [
+        null,
+        { tx:55,  tz:-160, ry:38, scale:0.76, opacity:0.80, zIndex:14 },
+        { tx:88,  tz:-310, ry:54, scale:0.55, opacity:0.50, zIndex:10 },
+        { tx:112, tz:-430, ry:64, scale:0.40, opacity:0.25, zIndex:6  },
+        { tx:130, tz:-520, ry:70, scale:0.30, opacity:0.08, zIndex:2  }
+    ];
+    const c = steps[Math.min(abs, 4)];
+    return { tx:sign*c.tx, tz:c.tz, ry:-sign*c.ry, scale:c.scale, opacity:c.opacity, zIndex:c.zIndex };
+}
+
+function updateCarousel(instant) {
+    items.forEach((el, i) => {
+        const offset = i - activeIndex;
+        const abs    = Math.abs(offset);
+        const t      = getTransform(offset);
+        if (abs > 4) { el.style.opacity='0'; el.style.zIndex='0'; el.style.pointerEvents='none'; return; }
+        if (instant) { el.style.transition='none'; requestAnimationFrame(() => { el.style.transition=''; }); }
+        el.style.transform     = 'translateX(' + t.tx + '%) translateZ(' + t.tz + 'px) rotateY(' + t.ry + 'deg) scale(' + t.scale + ')';
+        el.style.opacity       = t.opacity;
+        el.style.zIndex        = t.zIndex;
+        el.style.pointerEvents = abs <= 1 ? 'all' : 'none';
+        el.classList.toggle('is-active', offset === 0);
+
+        // Video lifecycle
+        const vidDiv = el.querySelector('.c-video');
+        if (i === activeIndex) {
+            if (!vidDiv.querySelector('video')) {
+                const vid = document.createElement('video');
+                vid.src      = videos[i].src;
+                vid.controls = true;
+                vid.autoplay = true;
+                vid.muted = true;
+                vid.playsInline = true;
+                vid.preload  = 'metadata';
+                vid.play().catch(() => {});
+                if (videos[i].thumb) vid.poster = videos[i].thumb;
+                vidDiv.appendChild(vid);
+            }
+        } else {
+            const vid = vidDiv.querySelector('video');
+            if (vid) { vid.pause(); vidDiv.innerHTML = ''; }
+        }
+    });
+
+    dotsEl.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === activeIndex));
+
+    const v = videos[activeIndex];
+    infoNumber.textContent = String(activeIndex+1).padStart(2,'0') + ' / ' + String(videos.length).padStart(2,'0');
+    infoTitle.style.cssText = 'opacity:0;transform:translateY(8px);transition:none';
+    setTimeout(() => {
+        infoTitle.textContent = v.title;
+        infoSub.textContent   = v.sub;
+        infoTitle.style.cssText = 'opacity:1;transform:translateY(0);transition:opacity 0.35s ease,transform 0.35s ease';
+    }, 180);
+}
+
+function goTo(index) {
+    if (isAnimating || index === activeIndex) return;
+    isAnimating = true;
+    activeIndex = (index + videos.length) % videos.length;
+    updateCarousel(false);
+    setTimeout(() => { isAnimating = false; }, ANIM_MS);
+}
+
+const prev = () => goTo(activeIndex - 1);
+const next = () => goTo(activeIndex + 1);
+
+document.getElementById('arrowLeft').addEventListener('click', prev);
+document.getElementById('arrowRight').addEventListener('click', next);
+track.addEventListener('click', e => {
+    const el = e.target.closest('.c-item');
+    if (el && parseInt(el.dataset.index) !== activeIndex) goTo(parseInt(el.dataset.index));
+});
+window.addEventListener('keydown', e => { if(e.key==='ArrowLeft') prev(); if(e.key==='ArrowRight') next(); });
+let touchX = 0;
+document.addEventListener('touchstart', e => { touchX = e.changedTouches[0].clientX; }, {passive:true});
+document.addEventListener('touchend',   e => { const dx = e.changedTouches[0].clientX-touchX; if(Math.abs(dx)>50) dx<0?next():prev(); }, {passive:true});
+
+updateCarousel(true);
+
+// ── PARTICLES ──
+const canvas = document.getElementById('particles');
+const ctx    = canvas.getContext('2d');
+function resizeCanvas() { canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+resizeCanvas();
+let particles = [];
+
+class Particle {
+    constructor() { this.reset(); }
+    reset() {
+        this.x=Math.random()*canvas.width; this.y=Math.random()*canvas.height;
+        this.size=(Math.random()*1.8+0.4); this.speedX=(Math.random()-0.5)*0.4;
+        this.speedY=(Math.random()-0.5)*0.4; this.opacity=Math.random()*0.45+0.15;
+    }
+    update() {
+        this.x+=this.speedX; this.y+=this.speedY;
+        if(this.x>canvas.width||this.x<0) this.speedX*=-1;
+        if(this.y>canvas.height||this.y<0) this.speedY*=-1;
+    }
+    draw() {
+        ctx.fillStyle='rgba(255,255,255,'+(this.opacity*0.28)+')';
+        ctx.beginPath(); ctx.arc(this.x,this.y,this.size,0,Math.PI*2); ctx.fill();
+    }
+}
+
+function initParticles() { particles=Array.from({length:70},()=>new Particle()); }
+function animateParticles() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach((p,i)=>{
+        p.update(); p.draw();
+        for(let j=i+1;j<particles.length;j++){
+            const dx=p.x-particles[j].x, dy=p.y-particles[j].y, d=Math.sqrt(dx*dx+dy*dy);
+            if(d<130){ ctx.strokeStyle='rgba(255,255,255,'+(0.07*(1-d/130))+')'; ctx.lineWidth=0.8; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(particles[j].x,particles[j].y); ctx.stroke(); }
+        }
+    });
+    requestAnimationFrame(animateParticles);
+}
+initParticles(); animateParticles();
+window.addEventListener('resize', ()=>{ resizeCanvas(); initParticles(); });
+window.addEventListener('mousemove', e=>{
+    particles.forEach(p=>{
+        const dx=e.clientX-p.x, dy=e.clientY-p.y, d=Math.sqrt(dx*dx+dy*dy);
+        if(d<120){ const f=(120-d)/120, a=Math.atan2(dy,dx); p.x-=Math.cos(a)*f*2; p.y-=Math.sin(a)*f*2; }
+    });
+});
+</script>
+</body>
+</html>

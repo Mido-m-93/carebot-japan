@@ -1,0 +1,12 @@
+node_modules
+.next
+dist
+.env
+.env.local
+__pycache__
+*.pyc
+.venv
+.turbo
+
+# Claude Code local settings
+.claude/settings.local.json

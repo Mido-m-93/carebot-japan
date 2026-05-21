@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaser Jamal - My Works</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Playfair+Display:wght@700;900&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #000000;
+            overflow-x: hidden;
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        /* Animated Background */
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #000000 100%);
+            z-index: 0;
+        }
+
+        .bg-shapes {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.05;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .shape-1 {
+            width: 400px;
+            height: 400px;
+            background: #1a1a1a;
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .shape-2 {
+            width: 300px;
+            height: 300px;
+            background: #1a1a1a;
+            bottom: -50px;
+            right: -50px;
+            animation-delay: 5s;
+        }
+
+        .shape-3 {
+            width: 250px;
+            height: 250px;
+            background: #1a1a1a;
+            top: 50%;
+            left: 30%;
+            animation-delay: 10s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(50px, 50px) scale(1.1);
+            }
+
+            50% {
+                transform: translate(-30px, 80px) scale(0.9);
+            }
+
+            75% {
+                transform: translate(70px, -40px) scale(1.05);
+            }
+        }
+
+        /* Particle Canvas */
+        #particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        /* Nav Buttons — fixed, always in corners like Credits page */
+        .nav-buttons {
+            position: fixed;
+            top: 2rem;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 2rem;
+            z-index: 200;
+            pointer-events: none;
+        }
+
+        .back-btn,
+        .scenes-btn {
+            pointer-events: all;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50px;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.4s ease;
+            cursor: pointer;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateX(-5px);
+            box-shadow: 0 5px 20px rgba(255, 255, 255, 0.15);
+        }
+
+        .scenes-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateX(5px);
+            box-shadow: 0 5px 20px rgba(255, 255, 255, 0.15);
+        }
+
+        .back-btn svg,
+        .scenes-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: #ffffff;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Header */
+        .header {
+            position: relative;
+            z-index: 100;
+            padding: 7rem 2rem 2rem;
+            text-align: center;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease forwards 0.2s;
+        }
+
+        .page-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 4rem;
+            font-weight: 900;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Gallery Container */
+        .gallery-container {
+            position: relative;
+            z-index: 10;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Masonry Grid */
+        .masonry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            grid-auto-flow: dense;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .work-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            animation: fadeInUp 0.6s ease forwards;
+            min-height: 300px;
+        }
+
+        /* Random Heights for Masonry Effect */
+        .work-item:nth-child(3n + 1) {
+            grid-row: span 2;
+        }
+
+        .work-item:nth-child(5n + 2) {
+            grid-row: span 1;
+        }
+
+        .work-item:nth-child(7n + 3) {
+            grid-row: span 2;
+        }
+
+        /* Expanded State */
+        .work-item.expanded {
+            grid-column: span 2;
+            grid-row: span 3;
+            z-index: 50;
+            border-color: rgba(251, 111, 74, 0.5);
+            box-shadow: 0 30px 80px rgba(251, 111, 74, 0.3);
+            max-width: 750px;
+            max-height: 650px;
+            min-height: auto;
+            margin: 0 auto;
+        }
+
+        .work-item:nth-child(1) { animation-delay: 0.1s; }
+        .work-item:nth-child(2) { animation-delay: 0.2s; }
+        .work-item:nth-child(3) { animation-delay: 0.3s; }
+        .work-item:nth-child(4) { animation-delay: 0.4s; }
+        .work-item:nth-child(5) { animation-delay: 0.5s; }
+        .work-item:nth-child(6) { animation-delay: 0.6s; }
+        .work-item:nth-child(n+7) { animation-delay: 0.7s; }
+
+        .work-item:hover:not(.expanded) {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+        }
+
+        .work-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .work-item:hover:not(.expanded) .work-image {
+            transform: scale(1.1);
+        }
+
+        .work-item.expanded .work-image {
+            transform: scale(1);
+            filter: brightness(0.7);
+            object-fit: cover;
+        }
+
+        .work-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom,
+                    rgba(0, 0, 0, 0) 0%,
+                    rgba(0, 0, 0, 0.4) 50%,
+                    rgba(0, 0, 0, 0.95) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 2rem;
+        }
+
+        .work-item:hover .work-overlay,
+        .work-item.expanded .work-overlay {
+            opacity: 1;
+        }
+
+        .work-item.expanded .work-overlay {
+            background: linear-gradient(to bottom,
+                    rgba(0, 0, 0, 0.3) 0%,
+                    rgba(0, 0, 0, 0.7) 50%,
+                    rgba(0, 0, 0, 0.98) 100%);
+            padding: 3rem;
+        }
+
+        .work-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.4s ease 0.1s;
+        }
+
+        .work-item:hover .work-title,
+        .work-item.expanded .work-title {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .work-item.expanded .work-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .work-description {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.6;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.4s ease 0.2s;
+        }
+
+        .work-item:hover .work-description,
+        .work-item.expanded .work-description {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .work-item.expanded .work-description {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Extended Description (Only shown when expanded) */
+        .work-extended {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.8;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.6s ease 0.3s;
+        }
+
+        .work-item.expanded .work-extended {
+            max-height: 500px;
+            opacity: 1;
+            margin-top: 1rem;
+        }
+
+        .work-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, #FB6F4A, #F9C373);
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.4s ease 0.3s;
+        }
+
+        .work-item:hover .work-badge,
+        .work-item.expanded .work-badge {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Close Button (only shown when expanded) */
+        .close-btn {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.4s ease 0.4s;
+            z-index: 10;
+        }
+
+        .work-item.expanded .close-btn {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        .close-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke: #ffffff;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .masonry-grid {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            }
+
+            .page-title {
+                font-size: 3rem;
+            }
+
+            .work-item.expanded {
+                grid-column: span 2;
+                grid-row: span 2;
+                max-width: 650px;
+                max-height: 550px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-buttons {
+                padding: 0 1.2rem;
+                top: 1.5rem;
+            }
+
+            .back-btn,
+            .scenes-btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.8rem;
+            }
+
+            .header {
+                padding: 6rem 1rem 1.5rem;
+            }
+
+            .page-title {
+                font-size: 2.5rem;
+            }
+
+            .page-subtitle {
+                font-size: 0.9rem;
+            }
+
+            .masonry-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 0.8rem;
+            }
+
+            .work-item:nth-child(3n + 1),
+            .work-item:nth-child(5n + 2),
+            .work-item:nth-child(7n + 3) {
+                grid-row: span 1;
+            }
+
+            .work-item.expanded {
+                grid-column: span 1;
+                grid-row: span 2;
+                max-width: 100%;
+                max-height: 500px;
+            }
+
+            .work-overlay {
+                padding: 1.5rem;
+            }
+
+            .work-item.expanded .work-overlay {
+                padding: 2rem;
+            }
+
+            .work-title {
+                font-size: 1.4rem;
+            }
+
+            .work-item.expanded .work-title {
+                font-size: 2rem;
+            }
+
+            .work-description {
+                font-size: 0.85rem;
+            }
+
+            .work-item.expanded .work-description {
+                font-size: 1rem;
+            }
+
+            .gallery-container {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-buttons {
+                padding: 0 1rem;
+                top: 1.2rem;
+            }
+
+            .back-btn,
+            .scenes-btn {
+                padding: 0.55rem 0.9rem;
+                font-size: 0.75rem;
+            }
+
+            .masonry-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .page-title {
+                font-size: 2rem;
+            }
+
+            .work-item.expanded {
+                grid-column: span 1;
+                grid-row: span 1;
+                max-height: 450px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="bg-gradient"></div>
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <!-- Particle Canvas -->
+    <canvas id="particles"></canvas>
+
+    <!-- Nav Buttons — fixed in corners at all screen sizes -->
+    <div class="nav-buttons">
+        <a href="index.html" class="back-btn">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back Home
+        </a>
+        <a href="scenes.html" class="scenes-btn">
+            Scenes
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+        </a>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <h1 class="page-title">My Works</h1>
+        <p class="page-subtitle">A Collection of My Professional Projects</p>
+    </div>
+
+    <!-- Gallery Container -->
+    <div class="gallery-container">
+        <div class="masonry-grid" id="gallery"></div>
+    </div>
+
+    <script>
+        // Work Items Data - DRY Principle Applied
+        const workItemsData = [
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/f7ad272b-6156-47f8-b596-1b4905121610-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/fc5b1eb0-7433-4fd0-9bc3-cbf257922a70-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/e10ef009-bc33-4886-993b-1f15abf01c3b-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/a715f5bb-4e0d-4e49-b49f-f42fc3dd7e50-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/29ef99a0-5824-4ab5-9fd4-93e03fcafdea-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/6173e9a7-6314-4346-bc54-0b6457f9c071-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/fe0fce2b-4a0d-4bf4-b5e5-776be5516d9a-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/dd47ea32-2139-483d-9901-da1d5902f2e8-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/a43ac32c-21f9-4b26-8698-b2d56a042eb8-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/7d119185-ca01-4e65-b8a7-6ae25e71f5fd-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/3a7bd197-dfa0-4145-92c9-7d0940ca6c0b-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA-1.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/e207be5e-cc89-4829-b690-6c7bac9d63fa-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/0e7700c2-d5c4-46ca-8b7d-8bb4dcf00ae0-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.png",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/c3a598be-29da-4b51-9267-36c4f7f0ed5f-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/38ea064e-f23c-42e1-9913-169e746a08b7-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpeg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/539e62ca-4ae9-4507-a14d-32f24336451d-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            },
+            {
+                image: "https://meguri-kaigo.com/wp-content/uploads/2026/02/b0512ae6-6da8-41ad-815d-70772e649224-bWFpbi1ub25lLW5vbmUtbi1uLTAtMC0wLTAtMA.jpg",
+                title: "Sony PCL Studio CM",
+                description: "Sub Cast (Mafia Boss)",
+                extended: "This compelling commercial shoot brought together exceptional talent and creative vision. Playing the role of a mafia boss required intense preparation and character development. The production spanned three days at Sony PCL Studios, featuring intricate set designs and dramatic lighting that captured the essence of the underworld atmosphere. Working with a stellar crew and director, we crafted powerful scenes that left a lasting impression on audiences."
+            }
+        ];
+
+        // Function to create a work item element
+        function createWorkItem(data) {
+            return `
+                <div class="work-item">
+                    <img src="${data.image}" alt="Work" class="work-image">
+                    <div class="work-overlay">
+                        <div class="work-badge">Featured</div>
+                        <div class="close-btn">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                        </div>
+                        <h3 class="work-title">${data.title}</h3>
+                        <p class="work-description">${data.description}</p>
+                        <div class="work-extended">${data.extended}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render all work items
+        function renderGallery() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = workItemsData.map(createWorkItem).join('');
+        }
+
+        // Initialize gallery
+        renderGallery();
+
+        // Particle Animation
+        const canvas = document.getElementById('particles');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let particlesArray = [];
+        const numberOfParticles = 80;
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 1;
+                this.speedX = Math.random() * 0.5 - 0.25;
+                this.speedY = Math.random() * 0.5 - 0.25;
+                this.opacity = Math.random() * 0.5 + 0.2;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.x > canvas.width || this.x < 0) {
+                    this.speedX = -this.speedX;
+                }
+                if (this.y > canvas.height || this.y < 0) {
+                    this.speedY = -this.speedY;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity * 0.3})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function init() {
+            particlesArray = [];
+            for (let i = 0; i < numberOfParticles; i++) {
+                particlesArray.push(new Particle());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < particlesArray.length; i++) {
+                particlesArray[i].update();
+                particlesArray[i].draw();
+
+                for (let j = i; j < particlesArray.length; j++) {
+                    const dx = particlesArray[i].x - particlesArray[j].x;
+                    const dy = particlesArray[i].y - particlesArray[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 150) {
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 * (1 - distance / 150)})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particlesArray[i].x, particlesArray[i].y);
+                        ctx.lineTo(particlesArray[j].x, particlesArray[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        init();
+        animate();
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            init();
+        });
+
+        // Mouse interaction with particles
+        let mouse = {
+            x: null,
+            y: null,
+            radius: 150
+        };
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.x;
+            mouse.y = e.y;
+
+            particlesArray.forEach(particle => {
+                const dx = mouse.x - particle.x;
+                const dy = mouse.y - particle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < mouse.radius) {
+                    const force = (mouse.radius - distance) / mouse.radius;
+                    const angle = Math.atan2(dy, dx);
+                    particle.x -= Math.cos(angle) * force * 2;
+                    particle.y -= Math.sin(angle) * force * 2;
+                }
+            });
+        });
+
+        // Expandable Work Items - Event Delegation
+        document.getElementById('gallery').addEventListener('click', function (e) {
+            const workItem = e.target.closest('.work-item');
+            if (!workItem) return;
+
+            // Prevent closing when clicking the close button
+            if (e.target.closest('.close-btn')) {
+                e.stopPropagation();
+                workItem.classList.remove('expanded');
+                return;
+            }
+
+            // Close all other expanded items
+            const allItems = document.querySelectorAll('.work-item');
+            allItems.forEach(otherItem => {
+                if (otherItem !== workItem) {
+                    otherItem.classList.remove('expanded');
+                }
+            });
+
+            // Toggle expanded state
+            workItem.classList.toggle('expanded');
+
+            // Scroll to item if expanded
+            if (workItem.classList.contains('expanded')) {
+                setTimeout(() => {
+                    workItem.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }, 300);
+            }
+        });
+    </script>
+</body>
+
+</html>
