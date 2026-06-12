@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
 

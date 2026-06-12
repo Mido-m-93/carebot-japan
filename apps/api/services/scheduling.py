@@ -61,10 +61,7 @@ def process_message(
     try:
         intent_result = classify_intent(raw_message)
     except Exception as e:
-        err_msg = str(e)
-        if "credit balance" in err_msg or "402" in err_msg or "400" in err_msg:
-            return {"status": "error", "reason": "anthropic_no_credits", "message": "Anthropic API has no credits. Please add credits at console.anthropic.com/settings/billing"}
-        return {"status": "error", "reason": "ai_error", "message": err_msg[:200]}
+        return {"status": "error", "reason": "ai_error", "message": str(e)[:200]}
 
     intent = intent_result.get("intent", "out_of_scope")
     intent_confidence = intent_result.get("confidence", 0.0)

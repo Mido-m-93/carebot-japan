@@ -2,10 +2,10 @@
 import os
 import json
 from datetime import datetime
-import anthropic
+from groq import Groq
 
 INTENT_SYSTEM = """You are a Japanese medical clinic scheduling assistant.
-Classify the intent of the incoming patient message.
+Classify the intent of the incoming patient message. Messages may be in Japanese or English.
 
 Return ONLY valid JSON matching this exact schema. No commentary, no markdown.
 
@@ -16,13 +16,19 @@ Return ONLY valid JSON matching this exact schema. No commentary, no markdown.
 }
 
 Intent definitions:
-- appointment_request: Patient wants to book a new appointment
-- cancellation: Patient wants to cancel an existing appointment
-- reschedule: Patient wants to move an existing appointment
-- general_inquiry: Question about the clinic (hours, location, fees, etc.)
+- appointment_request: Patient wants to book a new appointment. Japanese signals: 予約したい、予約をお願い、診ていただきたい、受診したい、appointment、make a reservation
+- cancellation: Patient wants to cancel an existing appointment. Japanese signals: キャンセル、取り消し、予約をキャンセル
+- reschedule: Patient wants to move an existing appointment. Japanese signals: 変更したい、日程変更
+- general_inquiry: Question about the clinic (hours, location, fees). Japanese signals: 診療時間、場所、費用
 - out_of_scope: Unrelated message or cannot be determined
 
-Use confidence < 0.75 when the message is ambiguous."""
+Examples:
+- "来週の水曜日に予約したいです" → appointment_request, confidence 0.95
+- "明日の予約をキャンセルしたい" → cancellation, confidence 0.95
+- "診療時間を教えてください" → general_inquiry, confidence 0.95
+- "I'd like to book an appointment" → appointment_request, confidence 0.95
+
+Use confidence < 0.75 only when the message is truly ambiguous."""
 
 EXTRACTION_SYSTEM = """You are a Japanese medical clinic scheduling assistant.
 Extract appointment booking details from the patient message.
@@ -60,8 +66,11 @@ Japanese date/time resolution:
 - "今週中" → ambiguities: ["no specific day given"]"""
 
 
+def _client() -> Groq:
+    return Groq(api_key=os.environ["GROQ_API_KEY"])
+
+
 def _parse_json(text: str) -> dict:
-    """Strip markdown fences and parse JSON."""
     cleaned = text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.split("```")[1]
@@ -71,52 +80,28 @@ def _parse_json(text: str) -> dict:
 
 
 def classify_intent(message: str) -> dict:
-    """
-    Classify patient message intent using Claude Haiku.
-    Fast and cheap (~¥0.02/call). Returns intent + confidence.
-    """
-    client = anthropic.Anthropic(
-        api_key=os.environ["ANTHROPIC_API_KEY"],
-        default_headers={
-            # Prevent patient data from being used for training
-            "anthropic-beta": "output-128k-2025-02-19",
-        },
-    )
-
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+    response = _client().chat.completions.create(
+        model="llama-3.3-70b-versatile",
         max_tokens=256,
-        system=INTENT_SYSTEM,
-        messages=[{"role": "user", "content": message}],
+        messages=[
+            {"role": "system", "content": INTENT_SYSTEM},
+            {"role": "user", "content": message},
+        ],
     )
-
-    text = response.content[0].text
-    return _parse_json(text)
+    return _parse_json(response.choices[0].message.content)
 
 
 def extract_appointment(message: str, today_jst: str) -> dict:
-    """
-    Extract appointment details from patient message using Claude Sonnet.
-    today_jst: "YYYY-MM-DD" — needed for relative date resolution.
-    """
-    client = anthropic.Anthropic(
-        api_key=os.environ["ANTHROPIC_API_KEY"],
-        default_headers={
-            "anthropic-beta": "output-128k-2025-02-19",
-        },
-    )
-
     user_content = f"Today's date (JST): {today_jst}\n\nPatient message:\n{message}"
-
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    response = _client().chat.completions.create(
+        model="llama-3.3-70b-versatile",
         max_tokens=512,
-        system=EXTRACTION_SYSTEM,
-        messages=[{"role": "user", "content": user_content}],
+        messages=[
+            {"role": "system", "content": EXTRACTION_SYSTEM},
+            {"role": "user", "content": user_content},
+        ],
     )
-
-    text = response.content[0].text
-    return _parse_json(text)
+    return _parse_json(response.choices[0].message.content)
 
 
 def generate_confirmation(
@@ -125,13 +110,8 @@ def generate_confirmation(
     time: str,
     clinic_name_jp: str,
 ) -> str:
-    """Generate a natural Japanese SMS confirmation message."""
-    from datetime import datetime
-    import locale
-
     greeting = f"{patient_name}様" if patient_name else "お客様"
 
-    # Parse and format in Japanese style
     dt_str = f"{date}T{time}:00"
     try:
         dt = datetime.fromisoformat(dt_str)

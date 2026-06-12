@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
@@ -20,12 +20,12 @@ interface RecentAppointment {
   source: string;
 }
 
-function StatCard({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
+function StatCard({ label, value, accent, href }: { label: string; value: number | string; accent?: string; href: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <p className="text-xs text-gray-400 mb-3">{label}</p>
+    <Link href={href} className="bg-white rounded-xl border border-gray-200 p-5 hover:border-teal-400 hover:shadow-sm transition-all group block">
+      <p className="text-xs text-gray-400 mb-3 group-hover:text-teal-600 transition-colors">{label}</p>
       <p className={`text-3xl font-semibold ${accent ?? "text-gray-900"}`}>{value}</p>
-    </div>
+    </Link>
   );
 }
 
@@ -34,6 +34,13 @@ export default function DashboardOverviewPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<RecentAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "down">("checking");
+
+  useEffect(() => {
+    fetch(`${API_URL}/health`)
+      .then((r) => setApiStatus(r.ok ? "ok" : "down"))
+      .catch(() => setApiStatus("down"));
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -87,9 +94,22 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">{t.overview_title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{t.overview_subtitle}</p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">{t.overview_title}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t.overview_subtitle}</p>
+        </div>
+        <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${
+          apiStatus === "ok" ? "bg-teal-50 border-teal-200 text-teal-700" :
+          apiStatus === "down" ? "bg-red-50 border-red-200 text-red-600" :
+          "bg-gray-50 border-gray-200 text-gray-400"
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            apiStatus === "ok" ? "bg-teal-500" :
+            apiStatus === "down" ? "bg-red-500" : "bg-gray-300"
+          }`} />
+          {apiStatus === "ok" ? "API connected" : apiStatus === "down" ? "API offline" : "Checking…"}
+        </div>
       </div>
 
       {loading ? (
@@ -97,14 +117,15 @@ export default function DashboardOverviewPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 mb-8 lg:grid-cols-4">
-            <StatCard label={t.stat_today} value={stats?.todayCount ?? 0} accent="text-teal-700" />
-            <StatCard label={t.stat_week} value={stats?.weekCount ?? 0} />
+            <StatCard label={t.stat_today} value={stats?.todayCount ?? 0} accent="text-teal-700" href="/dashboard/appointments" />
+            <StatCard label={t.stat_week} value={stats?.weekCount ?? 0} href="/dashboard/appointments" />
             <StatCard
               label={t.stat_pending}
               value={stats?.pendingReview ?? 0}
               accent={(stats?.pendingReview ?? 0) > 0 ? "text-amber-600" : "text-gray-900"}
+              href="/dashboard/review"
             />
-            <StatCard label={t.stat_confirmed} value={stats?.totalConfirmed ?? 0} />
+            <StatCard label={t.stat_confirmed} value={stats?.totalConfirmed ?? 0} href="/dashboard/appointments" />
           </div>
 
           {(stats?.pendingReview ?? 0) > 0 && (
@@ -185,7 +206,7 @@ export default function DashboardOverviewPage() {
             )}
           </div>
 
-          <div className="mt-8 grid grid-cols-3 gap-4">
+          <div className="mt-8 grid grid-cols-4 gap-4">
             {[
               { href: "/dashboard/test", title: t.quick_test_title, sub: t.quick_test_sub },
               { href: "/dashboard/appointments", title: t.quick_appts_title, sub: t.quick_appts_sub },
@@ -196,6 +217,10 @@ export default function DashboardOverviewPage() {
                 <p className="text-xs text-gray-400 mt-1">{sub}</p>
               </Link>
             ))}
+            <Link href="/book" target="_blank" className="bg-teal-800 border border-teal-700 rounded-xl p-5 hover:bg-teal-700 transition-colors group">
+              <p className="text-sm font-medium text-white">{lang === "ja" ? "予約フォーム" : "Booking Form"}</p>
+              <p className="text-xs text-teal-400 mt-1">{lang === "ja" ? "患者向け予約ページを開く ↗" : "Open patient booking page ↗"}</p>
+            </Link>
           </div>
         </>
       )}

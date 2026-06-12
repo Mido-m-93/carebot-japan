@@ -1,7 +1,7 @@
-// apps/web/src/app/dashboard/review/page.tsx
+﻿// apps/web/src/app/dashboard/review/page.tsx
 "use client";
 import { useEffect, useState } from "react";
-import { API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
+import { supabase, API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface QueueItem {
@@ -36,6 +36,12 @@ export default function ReviewQueuePage() {
   const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
+  const [userId, setUserId] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
 
   async function load() {
     const data = await fetch(`${API_URL}/queue/${DEMO_CLINIC_ID}?status=pending`)
@@ -57,24 +63,49 @@ export default function ReviewQueuePage() {
 
   async function resolve(item: QueueItem) {
     setResolving(item.id);
+    setResolveError(null);
     const extracted = item.extracted_data ?? {};
     const resolution = {
       clinic_id: DEMO_CLINIC_ID,
       patient_name: getEdit(item.id, "patient_name", extracted.patient_name as string),
+      patient_email: getEdit(item.id, "patient_email", extracted.patient_email as string),
       patient_phone: getEdit(item.id, "patient_phone", extracted.patient_phone as string),
       preferred_date: getEdit(item.id, "preferred_date", extracted.preferred_date as string),
       preferred_time: getEdit(item.id, "preferred_time", extracted.preferred_time as string),
       visit_reason: getEdit(item.id, "visit_reason", extracted.visit_reason as string),
       is_first_visit: extracted.is_first_visit ?? null,
+      lang: (extracted.lang as string) ?? "en",
       raw_message: item.raw_input,
     };
-    await fetch(`${API_URL}/queue/${item.id}/resolve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resolved_by: "00000000-0000-0000-0000-000000000000", resolution, create_appointment: true }),
-    });
-    await load();
-    setResolving(null);
+    try {
+      const res = await fetch(`${API_URL}/queue/${item.id}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolved_by: userId, resolution, create_appointment: true }),
+      });
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body.detail?.error === "slot_taken") {
+          const alts = body.detail.next_available?.join(", ") || "none";
+          setResolveError(
+            `⚠ ${body.detail.message} Next available: ${alts}. Please update the time and try again.`
+          );
+        } else if (body.detail?.error === "clinic_closed") {
+          setResolveError(`⚠ ${body.detail.message}`);
+        } else {
+          setResolveError(`Conflict: ${JSON.stringify(body.detail)}`);
+        }
+      } else if (!res.ok) {
+        const text = await res.text().catch(() => "Unknown error");
+        setResolveError(`Failed to resolve: ${text}`);
+      } else {
+        await load();
+      }
+    } catch (err) {
+      setResolveError(`Network error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setResolving(null);
+    }
   }
 
   async function dismiss(itemId: string) {
@@ -84,6 +115,7 @@ export default function ReviewQueuePage() {
 
   const fields = [
     { key: "patient_name", label: t.review_field_name },
+    { key: "patient_email", label: t.review_field_email },
     { key: "preferred_date", label: t.review_field_date },
     { key: "preferred_time", label: t.review_field_time },
     { key: "visit_reason", label: t.review_field_reason },
@@ -99,6 +131,13 @@ export default function ReviewQueuePage() {
         </div>
         <span className="text-sm text-gray-400">{t.items_pending(items.length)}</span>
       </div>
+
+      {resolveError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-center justify-between">
+          <p className="text-sm text-red-600">{resolveError}</p>
+          <button onClick={() => setResolveError(null)} className="text-red-400 hover:text-red-600 text-lg leading-none ml-4">×</button>
+        </div>
+      )}
 
       {loading && <p className="text-sm text-gray-400">{t.loading}</p>}
 

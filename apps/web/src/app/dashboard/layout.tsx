@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -8,6 +9,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { lang, toggle, t } = useLanguage();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.replace("/login");
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [router]);
 
   const navItems = [
     { href: "/dashboard", label: t.nav_overview },
@@ -22,6 +34,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     await supabase.auth.signOut();
     router.push("/login");
   }
+
+  if (checking) return null;
 
   return (
     <div className="flex min-h-screen">
@@ -51,6 +65,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             );
           })}
+          <div className="mx-4 mt-3 border-t border-teal-700 pt-3">
+            <Link
+              href="/book"
+              target="_blank"
+              className="flex items-center justify-between px-3 py-2 text-xs text-teal-300 bg-teal-700 rounded-lg hover:bg-teal-600 transition-colors"
+            >
+              <span>{lang === "ja" ? "予約フォームを開く" : "Patient Booking Form"}</span>
+              <span className="text-teal-400">↗</span>
+            </Link>
+          </div>
         </nav>
         <div className="px-5 py-4 border-t border-teal-600 space-y-2">
           <p className="text-xs text-teal-400">MVP v0.1</p>
