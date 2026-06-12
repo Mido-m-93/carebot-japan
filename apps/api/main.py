@@ -4,8 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
-load_dotenv("../../.env.local", override=True)
-load_dotenv("../../.env.example")  # fallback for local dev
+load_dotenv("../../.env.local")  # local dev only; Railway injects vars directly
 
 from routers import webhooks, appointments, queue, fax, claims
 
