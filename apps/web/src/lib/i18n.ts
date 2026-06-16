@@ -328,4 +328,4 @@ export const translations = {
   },
 } as const;
 
-export type T = (typeof translations)["en"];
+export type T = (typeof translations)[Lang];

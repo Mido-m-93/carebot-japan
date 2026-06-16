@@ -227,7 +227,7 @@ export default function ClaimsPage() {
       ) : (
         <div className="space-y-3">
           {claims.map((claim) => {
-            const review = aiReview[claim.id] ?? (claim.ai_flags as AIReview | null);
+            const review = aiReview[claim.id] ?? (claim.ai_flags as unknown as AIReview | null);
             const flagCount = review?.flags?.length ?? 0;
 
             return (
