@@ -1,0 +1,10 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /go/
+
+# Host
+Host: https://japanunlocked.com
+
+# Sitemaps
+Sitemap: https://japanunlocked.com/sitemap.xml

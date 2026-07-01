@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code マスタープロンプト集 - 15+ エンジニア向けテンプレート</title>
+    <meta name="description" content="バグ診断、リファクタリング、テスト生成など、プロの開発者向け15+のプロンプトテンプレート集。開発効率を50%向上させます。">
+    <meta name="keywords" content="Claude Code, プロンプト, エンジニア, 開発, テンプレート, デバッグ, テスト">
+
+    <!-- OGP -->
+    <meta property="og:title" content="Claude Code マスタープロンプト集 - 15+プロンプトテンプレート">
+    <meta property="og:description" content="開発効率を50%向上させるプロ向けプロンプト集。バグ診断からセキュリティスキャンまで。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://robo-co-op.github.io/prompt-pack/products/claude-code-prompts.html">
+    <meta name="twitter:card" content="summary">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        section {
+            padding: 60px 20px;
+        }
+
+        h2 {
+            font-size: 2em;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        h3 {
+            font-size: 1.3em;
+            margin: 25px 0 15px 0;
+            color: #667eea;
+        }
+
+        .price-box {
+            background: #f0f4ff;
+            padding: 30px;
+            border-radius: 10px;
+            margin: 30px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .price-box .price {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .feature-item {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        .feature-item h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .prompts-list {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin: 30px 0;
+        }
+
+        .prompts-list ol {
+            margin-left: 20px;
+        }
+
+        .prompts-list li {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .benefit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .benefit-card {
+            padding: 25px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .benefit-card .number {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .benefit-card p {
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .cta-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 18px 40px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 20px 0;
+            transition: transform 0.3s ease;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 30px;
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            h2 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📝 Claude Code マスタープロンプト集</h1>
+            <p>プロの開発者向け。コーディングを50%高速化する15+のプロンプトテンプレート</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="../" class="back-link">← トップに戻る</a>
+
+        <section>
+            <h2>このプロンプ集について</h2>
+            <p>
+                エンジニアの生産性を 50% 上げる、15 個の実践的なプロンプトテンプレート集です。
+            </p>
+            <p style="margin-top: 15px;">
+                Claude Code でコーディングを高速化・品質向上させるための、すぐに使えるプロンプト集です。
+                バグ診断からセキュリティスキャン、スケーラビリティ検証まで、実務で必要なあらゆるタスクをカバーしています。
+            </p>
+
+            <div class="price-box">
+                <div class="price">$9</div>
+                <p style="margin-top: 15px;">永続ライセンス + 無料アップデート</p>
+                <a href="<!-- GUMROAD_LINK_PRODUCT_1 -->" class="cta-button">今すぐ購入する</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>含まれる15のプロンプトテンプレート</h2>
+
+            <div class="prompts-list">
+                <ol>
+                    <li><strong>バグ自動診断</strong> - エラーの原因と修正法を即座に提示</li>
+                    <li><strong>コード品質スコアリング</strong> - あなたのコードを 100 点で採点、改善点を指摘</li>
+                    <li><strong>リファクタリングプラン</strong> - 古いコードをどう改善するか優先度付けで提案</li>
+                    <li><strong>テストケース自動生成</strong> - ユニットテストの網羅的なテストケースを生成</li>
+                    <li><strong>PR 説明文自動生成</strong> - わかりやすい PR 説明をコードから自動生成</li>
+                    <li><strong>コード説明文</strong> - 複雑なロジックを丁寧にドキュメント化</li>
+                    <li><strong>パフォーマンス最適化分析</strong> - ボトルネックを特定し改善法を提案</li>
+                    <li><strong>レガシーコード現代化</strong> - 古い書き方を最新ベストプラクティスに</li>
+                    <li><strong>依存関係分析</strong> - npm/pip パッケージの不要な依存を整理</li>
+                    <li><strong>セキュリティ脆弱性スキャン</strong> - CVSS スコア付きで脆弱性を診断</li>
+                    <li><strong>関数シグネチャ設計</strong> - 拡張性の高い関数設計をアドバイス</li>
+                    <li><strong>バージョン互換性検証</strong> - ライブラリアップグレード時の互換性確認</li>
+                    <li><strong>エラーハンドリング設計</strong> - 堅牢なエラー処理を体系的に設計</li>
+                    <li><strong>型設計と型安全性</strong> - TypeScript の型を完全にマスター</li>
+                    <li><strong>スケーラビリティ検証</strong> - 大規模ユーザーに対応できるか診断</li>
+                </ol>
+            </div>
+        </section>
+
+        <section>
+            <h2>各プロンプトの構成</h2>
+
+            <div class="features-list">
+                <div class="feature-item">
+                    <h4>✓ 実際のユースケース説明</h4>
+                    <p>「こういう時に使う」という具体的なシーンを説明</p>
+                </div>
+                <div class="feature-item">
+                    <h4>✓ すぐに使えるテンプレート</h4>
+                    <p>コピペで使える形式。カスタマイズも簡単</p>
+                </div>
+                <div class="feature-item">
+                    <h4>✓ 実行後の出力例</h4>
+                    <p>Claude から返ってくる出力の実例を掲載</p>
+                </div>
+                <div class="feature-item">
+                    <h4>✓ 応用例とカスタマイズ方法</h4>
+                    <p>さらに効果的に使うための応用パターン</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>期待できる効果</h2>
+
+            <div class="benefit-grid">
+                <div class="benefit-card">
+                    <div class="number">+20</div>
+                    <p>コード品質スコア向上</p>
+                </div>
+                <div class="benefit-card">
+                    <div class="number">50-70%</div>
+                    <p>リファクタリング時間削減</p>
+                </div>
+                <div class="benefit-card">
+                    <div class="number">+30%</div>
+                    <p>テストカバレッジ向上</p>
+                </div>
+                <div class="benefit-card">
+                    <div class="number">大幅低減</div>
+                    <p>セキュリティリスク削減</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>こんな人向けです</h2>
+
+            <ul style="line-height: 2; margin-left: 20px;">
+                <li>✅ フルスタックエンジニア</li>
+                <li>✅ スタートアップの技術リーダー</li>
+                <li>✅ コードの品質を上げたい</li>
+                <li>✅ 開発スピードを上げたい</li>
+                <li>✅ Claude Code を使いこなしたい</li>
+            </ul>
+        </section>
+
+        <section style="background: #f8f9fa; border-radius: 10px;">
+            <h2 style="margin-top: 0;">実務検証済みの方法論</h2>
+            <p>
+                このプロンプント集は、実際のスタートアップ開発現場で検証された方法論に基づいています。
+                理論ではなく、実務で結果が出たテクニックだけを掲載しています。
+            </p>
+            <p style="margin-top: 15px;">
+                すぐに仕事に活用できる実践的な内容です。
+            </p>
+
+            <div style="text-align: center; margin-top: 40px;">
+                <a href="<!-- GUMROAD_LINK_PRODUCT_1 -->" class="cta-button">今すぐ購入 - $9</a>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Claude Prompt Engineering Pack | Launchpad</p>
+        </div>
+    </footer>
+</body>
+</html>

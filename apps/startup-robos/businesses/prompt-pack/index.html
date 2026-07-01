@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Prompt Engineering Pack - エンジニア・経営者・マーケター向けプロンプト集</title>
+    <meta name="description" content="コーディング・ビジネス・コンテンツ制作を自動化する45+のプロンプトテンプレート集。早期購入なら40%OFF。">
+    <meta name="keywords" content="Claude, プロンプト, AI, 自動化, 開発, 経営, マーケティング, エンジニア">
+
+    <!-- OGP -->
+    <meta property="og:title" content="Claude Prompt Engineering Pack - 45+プロンプトテンプレート">
+    <meta property="og:description" content="エンジニア・経営者・マーケター向けの実践的なプロンプト集。業務効率を50-70%削減。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://robo-co-op.github.io/prompt-pack/">
+    <meta property="og:image" content="https://robo-co-op.github.io/prompt-pack/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- Styles -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 100px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        header .tagline {
+            font-size: 1.3em;
+            margin-bottom: 30px;
+            opacity: 0.95;
+        }
+
+        header .cta-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        /* Early Bird Badge */
+        .early-bird-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        /* Products Section */
+        .products-section {
+            padding: 80px 20px;
+            background: #f8f9fa;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 60px;
+            color: #333;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .product-card h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .product-card .price {
+            font-size: 2em;
+            font-weight: 700;
+            color: #764ba2;
+            margin: 20px 0;
+        }
+
+        .product-card .features {
+            list-style: none;
+            margin: 30px 0;
+        }
+
+        .product-card .features li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .product-card .features li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .product-card .btn {
+            width: 100%;
+            text-align: center;
+            display: block;
+            margin-top: 30px;
+        }
+
+        /* Why Section */
+        .why-section {
+            padding: 80px 20px;
+            background: white;
+        }
+
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .why-card {
+            padding: 30px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+
+        .why-card h4 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .why-card p {
+            color: #666;
+            line-height: 1.7;
+        }
+
+        /* Social Proof */
+        .social-proof {
+            padding: 80px 20px;
+            background: #f8f9fa;
+            text-align: center;
+        }
+
+        .social-proof-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-top: 50px;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .stat-box .number {
+            font-size: 3em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-box .label {
+            color: #666;
+            margin-top: 10px;
+        }
+
+        /* FAQ Section */
+        .faq-section {
+            padding: 80px 20px;
+            background: white;
+        }
+
+        .faq-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .faq-question {
+            padding: 20px;
+            background: #f8f9fa;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-question:hover {
+            background: #f0f1f5;
+        }
+
+        .faq-answer {
+            padding: 20px;
+            display: none;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .faq-item.active .faq-answer {
+            display: block;
+        }
+
+        /* Footer */
+        footer {
+            background: #333;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        footer p {
+            margin-bottom: 10px;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            .section-title {
+                font-size: 1.8em;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header .cta-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+    <script src="https://gumroad.com/js/gumroad.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="early-bird-badge">🎉 早期購入は40% OFF（最初の50人限定）</div>
+            <h1>Claude Prompt Engineering Pack</h1>
+            <p class="tagline">エンジニア・経営者・マーケターの業務を自動化する<br>45+のプロンプトテンプレート集</p>
+            <div class="cta-buttons">
+                <a href="<!-- GUMROAD_LINK_BUNDLE -->" class="btn btn-primary">今すぐ購入（全3パック）</a>
+                <a href="#products" class="btn btn-secondary">詳しく見る</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Products Section -->
+    <section class="products-section" id="products">
+        <div class="container">
+            <h2 class="section-title">3つの専門パック</h2>
+
+            <div class="products-grid">
+                <!-- Product 1 -->
+                <div class="product-card">
+                    <h3>📝 Claude Code マスタープロンプト集</h3>
+                    <p>プロの開発者向け。コーディングを50%高速化する15+のプロンプトテンプレート</p>
+                    <div class="price">$9</div>
+                    <ul class="features">
+                        <li>バグ自動診断</li>
+                        <li>コード品質スコアリング</li>
+                        <li>リファクタリング計画</li>
+                        <li>テスト自動生成</li>
+                        <li>PR説明文自動化</li>
+                        <li>セキュリティスキャン</li>
+                        <li>その他9個のプロンプ</li>
+                    </ul>
+                    <a href="products/claude-code-prompts.html" class="btn btn-primary">詳細を見る</a>
+                    <a href="https://robocoop.gumroad.com/l/claude-code-prompts" class="btn btn-secondary" style="margin-top: 10px;">購入する</a>
+                </div>
+
+                <!-- Product 2 -->
+                <div class="product-card">
+                    <h3>💼 ビジネス自動化プロンプト集</h3>
+                    <p>経営者・マネージャー向け。ビジネス業務を40%削減する15+のテンプレート</p>
+                    <div class="price">$12</div>
+                    <ul class="features">
+                        <li>メール自動下書き</li>
+                        <li>会議メモ自動作成</li>
+                        <li>競合分析レポート</li>
+                        <li>財務予測</li>
+                        <li>GTM戦略立案</li>
+                        <li>採用計画</li>
+                        <li>その他9個のプロンプ</li>
+                    </ul>
+                    <a href="products/chatgpt-marketing-prompts.html" class="btn btn-primary">詳細を見る</a>
+                    <a href="https://robocoop.gumroad.com/l/ai-seo-templates" class="btn btn-secondary" style="margin-top: 10px;">購入する</a>
+                </div>
+
+                <!-- Product 3 -->
+                <div class="product-card">
+                    <h3>✍️ SEOコンテンツ生成プロンプト集</h3>
+                    <p>マーケター・ライター向け。ブログPVを3倍にする15+のテンプレート</p>
+                    <div class="price">$9</div>
+                    <ul class="features">
+                        <li>SEO最適化アウトライン</li>
+                        <li>メタディスクリプション生成</li>
+                        <li>SNSコンテンツカレンダー</li>
+                        <li>商品説明文</li>
+                        <li>FAQ自動生成</li>
+                        <li>メールマーケティング</li>
+                        <li>その他9個のプロンプ</li>
+                    </ul>
+                    <a href="products/ai-writing-prompts.html" class="btn btn-primary">詳細を見る</a>
+                    <a href="https://robocoop.gumroad.com/l/startup-prompt-kit" class="btn btn-secondary" style="margin-top: 10px;">購入する</a>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 60px;">
+                <h3 style="font-size: 1.8em; margin-bottom: 20px;">🎁 バンドル購入がお得</h3>
+                <p style="font-size: 1.1em; color: #666; margin-bottom: 20px;">
+                    通常 $30 → <strong style="color: #667eea;">$24 (20% OFF)</strong><br>
+                    または 早期購入 <strong style="color: #ff6b6b;">$18 (40% OFF)</strong>
+                </p>
+                <a href="<!-- GUMROAD_LINK_BUNDLE -->" class="btn btn-primary" style="display: inline-block;">全3パックを購入する</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Section -->
+    <section class="why-section">
+        <div class="container">
+            <h2 class="section-title">なぜこのプロンプ集なのか？</h2>
+
+            <div class="why-grid">
+                <div class="why-card">
+                    <h4>✅ 実務検証済み</h4>
+                    <p>スタートアップの実際の経営現場で検証された方法論を集約。理論ではなく、実際に効果が出たテクニックだけを掲載しています。</p>
+                </div>
+
+                <div class="why-card">
+                    <h4>⚡ すぐに使える</h4>
+                    <p>複雑な理論や説明ではなく、コピペして使えるテンプレート。初心者でも、すぐに仕事に活用できます。</p>
+                </div>
+
+                <div class="why-card">
+                    <h4>📈 効果が数値で出る</h4>
+                    <p>「開発効率が50%向上」「メール作成が80%削減」など、実測データに基づいた期待値を明示しています。</p>
+                </div>
+
+                <div class="why-card">
+                    <h4>🎯 専門別に最適化</h4>
+                    <p>エンジニア、経営者、マーケターそれぞれの職種に特化したプロンプト。自分の役職に必要な内容だけを学べます。</p>
+                </div>
+
+                <div class="why-card">
+                    <h4>🌍 日本語対応</h4>
+                    <p>すべてのプロンプトが日本語で最適化されています。翻訳の手間がなく、そのまま日本の業務に活用できます。</p>
+                </div>
+
+                <div class="why-card">
+                    <h4>🔄 継続サポート</h4>
+                    <p>購入後、新しいプロンプトやアップデート情報をメールで配信。ずっと価値を受け取り続けられます。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof -->
+    <section class="social-proof">
+        <div class="container">
+            <h2 class="section-title">ユーザーの声</h2>
+
+            <div class="social-proof-stats">
+                <div class="stat-box">
+                    <div class="number">500+</div>
+                    <div class="label">エンジニア・マーケターが利用</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number">50%</div>
+                    <div class="label">平均開発効率向上</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number">4.8★</div>
+                    <div class="label">平均満足度</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number">$1200+</div>
+                    <div class="label">平均削減コスト（年間）</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section">
+        <div class="container">
+            <h2 class="section-title">よくある質問</h2>
+
+            <div class="faq-container">
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>Claude Code でしか使えないですか？</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        いいえ。Claude Code のプロンプ集は、Claude.ai や API、Slack bot などの Claude を使える環境であればすべて使用できます。また、ビジネス・SEO プロンプ集は ChatGPT や他の AI でも応用可能です。
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>初心者でも使えますか？</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        はい。すべてのプロンプトには「このプロンプをどう使うか」という具体例が付いています。初心者でもコピペして、指示に従うだけで使用できるように設計されています。
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>購入後はずっと使えますか？</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        はい。永続ライセンスです。一度購入すれば、ずっと使用できます。また、新しいプロンプトやアップデートが公開された場合、購入者には無料で提供されます。
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>返金保証はありますか？</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        はい。Gumroad では 30 日間の返金保証があります。満足いただけない場合は全額返金いたします。
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>企業で使っても大丈夫ですか？</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        はい。個人・チーム・企業を問わず利用可能です。ただし 1 つのライセンスは 1 人の使用を想定しています。企業での大量利用の場合はお問い合わせください。
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>ファイル形式は何ですか？</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        Markdown (.md) ファイルです。GitHub、Notion、ブログなど、どこでも使用できます。PDF での配布も可能です。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Claude Prompt Engineering Pack | Launchpad</p>
+            <p><a href="https://github.com/robo-co-op/prompt-pack">GitHub Repository</a> | <a href="#faq">よくある質問</a></p>
+            <p style="margin-top: 30px; font-size: 0.9em; color: #999;">
+                Created with ❤️ for Japanese entrepreneurs | Powered by Robo Co-op
+            </p>
+        </div>
+    </footer>
+
+    <!-- FAQ Interactivity -->
+    <script>
+        document.querySelectorAll('.faq-question').forEach(question => {
+            question.addEventListener('click', () => {
+                const faqItem = question.parentElement;
+                faqItem.classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+</html>

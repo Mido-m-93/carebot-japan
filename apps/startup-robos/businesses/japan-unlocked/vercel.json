@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "out",
+  "installCommand": "npm install",
+  "framework": null,
+  "env": {
+    "SITE_URL": "https://japanunlocked.com"
+  }
+}

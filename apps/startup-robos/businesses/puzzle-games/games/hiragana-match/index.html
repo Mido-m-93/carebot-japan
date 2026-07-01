@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ひらがなマッチ - 楽しい日本語学習ゲーム | Hiragana</title>
+    <meta name="description" content="ひらがなの学習に最適な無料メモリゲーム。レベル1（あいうえお）、レベル2（か行）、レベル3（混合）で段階的に学習できます。ハイスコア記録機能付き。">
+    <meta name="keywords" content="ひらがな,学習,メモリゲーム,神経衰弱,日本語教育,子ども向け,無料ゲーム">
+    <meta property="og:title" content="ひらがなマッチ - 楽しい学習ゲーム">
+    <meta property="og:description" content="レベル別のひらがな学習メモリゲーム。楽しく日本語を学べます。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://robo-co-op.github.io/puzzle-games/games/hiragana-match/">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1023108228973632"
+     crossorigin="anonymous"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .level-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .level-btn {
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .level-btn:hover {
+            border-color: #f5576c;
+            color: #f5576c;
+        }
+
+        .level-btn.active {
+            background: #f5576c;
+            border-color: #f5576c;
+            color: white;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f3f4f6;
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #f5576c;
+        }
+
+        .timer {
+            font-size: 16px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .game-area {
+            margin-bottom: 25px;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+            user-select: none;
+        }
+
+        .card:hover:not(.flipped):not(.matched) {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .card.flipped {
+            background: white;
+            color: #333;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card.matched {
+            background: #d1fae5;
+            color: #065f46;
+            cursor: not-allowed;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .card.error {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-new {
+            background: #f5576c;
+            color: white;
+        }
+
+        .btn-new:hover {
+            background: #e03d54;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-reset {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #4b5563;
+        }
+
+        .message {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-weight: 600;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            font-size: 18px;
+        }
+
+        .message.info {
+            background: #bfdbfe;
+            color: #1e40af;
+        }
+
+        .adsense-placeholder {
+            background: #e5e7eb;
+            border: 2px dashed #9ca3af;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 25px;
+        }
+
+        @media (max-width: 500px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .cards-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+
+            .card {
+                font-size: 18px;
+            }
+
+            .level-selector {
+                gap: 8px;
+            }
+
+            .level-btn {
+                font-size: 12px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ひらがなマッチ</h1>
+            <p class="subtitle">Hiragana Memory Game</p>
+        </header>
+
+        <div class="message" id="message"></div>
+
+        <div class="level-selector">
+            <button class="level-btn active" data-level="1">レベル1<br>あいうえお</button>
+            <button class="level-btn" data-level="2">レベル2<br>か行</button>
+            <button class="level-btn" data-level="3">レベル3<br>混合</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">スコア</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">ベストタイム</div>
+                <div class="timer" id="bestTime">--:--</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">ペア</div>
+                <div class="stat-value"><span id="matches">0</span>/5</div>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div class="cards-grid" id="cardsGrid"></div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn-new">新しいゲーム</button>
+            <button class="btn-reset">リセット</button>
+        </div>
+
+        <ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-1023108228973632"
+     data-ad-slot="YYYYYYYYYY"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+        <div class="adsense-placeholder">
+            <!-- AdSense広告コード: 336x280 を挿入してください -->
+        </div>
+    </div>
+
+    <script>
+        class HiraganaMatchGame {
+            constructor() {
+                this.levels = {
+                    1: {
+                        pairs: [
+                            { hiragana: 'あ', romaji: 'a' },
+                            { hiragana: 'い', romaji: 'i' },
+                            { hiragana: 'う', romaji: 'u' },
+                            { hiragana: 'え', romaji: 'e' },
+                            { hiragana: 'お', romaji: 'o' }
+                        ]
+                    },
+                    2: {
+                        pairs: [
+                            { hiragana: 'か', romaji: 'ka' },
+                            { hiragana: 'き', romaji: 'ki' },
+                            { hiragana: 'く', romaji: 'ku' },
+                            { hiragana: 'け', romaji: 'ke' },
+                            { hiragana: 'こ', romaji: 'ko' }
+                        ]
+                    },
+                    3: {
+                        pairs: [
+                            { hiragana: 'あ', romaji: 'a' },
+                            { hiragana: 'か', romaji: 'ka' },
+                            { hiragana: 'さ', romaji: 'sa' },
+                            { hiragana: 'た', romaji: 'ta' },
+                            { hiragana: 'な', romaji: 'na' }
+                        ]
+                    }
+                };
+
+                this.currentLevel = 1;
+                this.cards = [];
+                this.flipped = [];
+                this.matched = new Set();
+                this.score = 0;
+                this.startTime = Date.now();
+                this.timerInterval = null;
+                this.canFlip = true;
+                this.bestTimes = this.loadBestTimes();
+
+                this.init();
+            }
+
+            loadBestTimes() {
+                const saved = localStorage.getItem('hiraganaMatchBestTimes');
+                return saved ? JSON.parse(saved) : { 1: null, 2: null, 3: null };
+            }
+
+            saveBestTimes() {
+                localStorage.setItem('hiraganaMatchBestTimes', JSON.stringify(this.bestTimes));
+            }
+
+            saveBestTime(level, seconds) {
+                if (!this.bestTimes[level] || seconds < this.bestTimes[level]) {
+                    this.bestTimes[level] = seconds;
+                    this.saveBestTimes();
+                    return true;
+                }
+                return false;
+            }
+
+            formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            updateBestTimeDisplay() {
+                const best = this.bestTimes[this.currentLevel];
+                const bestTimeEl = document.getElementById('bestTime');
+                if (best !== null) {
+                    bestTimeEl.textContent = this.formatTime(best);
+                } else {
+                    bestTimeEl.textContent = '--:--';
+                }
+            }
+
+            init() {
+                this.updateBestTimeDisplay();
+                this.newGame();
+                this.attachEventListeners();
+            }
+
+            createCards() {
+                const pairs = this.levels[this.currentLevel].pairs;
+                this.cards = [];
+
+                pairs.forEach((pair, idx) => {
+                    this.cards.push({
+                        id: `h${idx}`,
+                        content: pair.hiragana,
+                        pair: `r${idx}`
+                    });
+                    this.cards.push({
+                        id: `r${idx}`,
+                        content: pair.romaji,
+                        pair: `h${idx}`
+                    });
+                });
+
+                // Shuffle
+                for (let i = this.cards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+                }
+            }
+
+            renderCards() {
+                const grid = document.getElementById('cardsGrid');
+                grid.innerHTML = '';
+
+                this.cards.forEach((card, idx) => {
+                    const cardEl = document.createElement('button');
+                    cardEl.className = 'card';
+                    if (this.flipped.includes(idx)) {
+                        cardEl.classList.add('flipped');
+                        cardEl.textContent = card.content;
+                    }
+                    if (this.matched.has(card.id)) {
+                        cardEl.classList.add('matched');
+                        cardEl.textContent = card.content;
+                    }
+
+                    cardEl.addEventListener('click', () => this.flipCard(idx));
+                    grid.appendChild(cardEl);
+                });
+            }
+
+            flipCard(idx) {
+                if (!this.canFlip) return;
+                if (this.flipped.includes(idx)) return;
+                if (this.matched.has(this.cards[idx].id)) return;
+
+                this.flipped.push(idx);
+                this.renderCards();
+
+                if (this.flipped.length === 2) {
+                    this.canFlip = false;
+                    this.checkMatch();
+                }
+            }
+
+            checkMatch() {
+                const [idx1, idx2] = this.flipped;
+                const card1 = this.cards[idx1];
+                const card2 = this.cards[idx2];
+
+                if (card1.pair === card2.id) {
+                    // Match found
+                    this.matched.add(card1.id);
+                    this.matched.add(card2.id);
+                    this.score += 10;
+                    this.updateStats();
+                    this.flipped = [];
+                    this.canFlip = true;
+
+                    if (this.matched.size === this.cards.length) {
+                        this.win();
+                    } else {
+                        this.renderCards();
+                    }
+                } else {
+                    // No match
+                    this.score = Math.max(0, this.score - 1);
+                    this.updateStats();
+
+                    // Show error animation
+                    const grid = document.getElementById('cardsGrid');
+                    [idx1, idx2].forEach(idx => {
+                        grid.children[idx].classList.add('error');
+                    });
+
+                    setTimeout(() => {
+                        this.flipped = [];
+                        this.canFlip = true;
+                        this.renderCards();
+                    }, 500);
+                }
+            }
+
+            updateStats() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('matches').textContent = Math.floor(this.matched.size / 2);
+            }
+
+            startTimer() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                this.startTime = Date.now();
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = elapsed % 60;
+                    document.getElementById('timer').textContent =
+                        `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }, 1000);
+            }
+
+            win() {
+                clearInterval(this.timerInterval);
+                const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+                const isNewRecord = this.saveBestTime(this.currentLevel, elapsed);
+                this.updateBestTimeDisplay();
+
+                const timeStr = this.formatTime(elapsed);
+                let message = `完成！スコア: ${this.score} (時間: ${timeStr})`;
+                if (isNewRecord) {
+                    message += '\n新記録！';
+                }
+                this.showMessage(message, 'success');
+            }
+
+            newGame() {
+                clearInterval(this.timerInterval);
+                this.flipped = [];
+                this.matched.clear();
+                this.score = 0;
+                this.canFlip = true;
+                this.createCards();
+                this.renderCards();
+                this.updateStats();
+                this.updateBestTimeDisplay();
+                this.startTimer();
+            }
+
+            resetGame() {
+                this.newGame();
+            }
+
+            showMessage(text, type) {
+                const msg = document.getElementById('message');
+                msg.textContent = text;
+                msg.className = `message show ${type}`;
+                setTimeout(() => msg.classList.remove('show'), 4000);
+            }
+        }
+
+        let game = new HiraganaMatchGame();
+
+        // Event listeners
+        document.querySelectorAll('.level-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                game.currentLevel = parseInt(e.target.dataset.level);
+                game.newGame();
+            });
+        });
+
+        document.querySelector('.btn-new').addEventListener('click', () => {
+            game.newGame();
+        });
+
+        document.querySelector('.btn-reset').addEventListener('click', () => {
+            game.resetGame();
+        });
+    </script>
+</body>
+</html>

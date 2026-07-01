@@ -1,0 +1,28 @@
+# robots.txt for ai-tool-lab
+# Generated: 2026-04-12
+
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /articles/
+Allow: /sitemap.xml
+Disallow: /admin/
+Disallow: /*.json
+Disallow: /.git/
+Disallow: /.github/
+
+# Specific rules for search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+# Sitemap
+Sitemap: https://robo-co-op.github.io/ai-tool-lab/sitemap.xml
+
+# Crawl delay (optional - helps with server resources)
+# Crawl-delay: 1

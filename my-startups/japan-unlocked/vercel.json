@@ -1,0 +1,6 @@
+﻿{
+  "framework": "nextjs",
+  "buildCommand": "cd ../.. && pnpm --filter japan-unlocked build",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && pnpm install"
+}

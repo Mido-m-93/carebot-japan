@@ -1,0 +1,22 @@
+# Claude Prompt Engineering Pack - robots.txt
+# Created: 2026-04-12
+
+User-agent: *
+Allow: /
+Disallow: /.*\.env
+Disallow: /config/
+Disallow: /*.pdf$
+
+# Crawl-delay to avoid overloading the server
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://robo-co-op.github.io/prompt-pack/sitemap.xml
+
+# Google-specific rules
+User-agent: Googlebot
+Allow: /
+
+# Bing-specific rules
+User-agent: Bingbot
+Allow: /

@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/heartbeat/ceo",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/heartbeat/cxo",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/optimizer/weekly",
+      "schedule": "0 3 * * 1"
+    }
+  ]
+}

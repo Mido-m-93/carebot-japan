@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "robo-coop-tools": {
+      "source": { "source": "github", "repo": "Robo-Co-op/robobuilder" }
+    }
+  },
+  "enabledPlugins": {
+    "robobuilder@robo-coop-tools": true
+  }
+}

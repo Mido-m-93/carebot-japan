@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/* Radix UI Themes provides the base color system (slate + blue).
+   We only add a few global bits here (scrollbar, legacy helpers). */
+
+html, body {
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--slate-5);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--slate-6);
+}
+
+/* Subtle row hover for Linear-like lists */
+.nav-link:hover {
+  background: var(--slate-3) !important;
+  color: var(--slate-12) !important;
+}
+
+/* Legacy classes (retained only while old components migrate) */
+.card {
+  background: var(--slate-1);
+  border: 1px solid var(--slate-4);
+  border-radius: 8px;
+}
+.card:hover {
+  border-color: var(--slate-5);
+}

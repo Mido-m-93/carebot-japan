@@ -1,0 +1,119 @@
+3:I[4707,[],""]
+5:I[6423,[],""]
+4:["slug","how-to-use-suica-card-iphone","d"]
+0:["h7nVfE1KiS4KJI2p6hSvz",[[["",{"children":[["slug","how-to-use-suica-card-iphone","d"],{"children":["__PAGE__?{\"slug\":\"how-to-use-suica-card-iphone\"}",{}]}]},"$undefined","$undefined",true],["",{"children":[["slug","how-to-use-suica-card-iphone","d"],{"children":["__PAGE__",{},[["$L1","$L2",null],null],null]},[null,["$","$L3",null,{"parallelRouterKey":"children","segmentPath":["children","$4","children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","notFoundStyles":"$undefined"}]],null]},[[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/b465a150acc6d24d.css","precedence":"next","crossOrigin":"$undefined"}]],["$","html",null,{"lang":"en","children":["$","body",null,{"children":[["$","a",null,{"href":"#main-content","className":"skip-link","children":"Skip to main content"}],["$","header",null,{"className":"border-b border-[var(--border)] bg-white sticky top-0 z-40","children":["$","div",null,{"className":"max-w-[1200px] mx-auto px-5 sm:px-8 flex items-center justify-between h-14","children":[["$","a",null,{"href":"/","className":"flex items-center gap-2 group","children":[["$","span",null,{"className":"text-[var(--accent)] font-serif font-bold text-xl tracking-tight","aria-hidden":"true","children":"日"}],["$","span",null,{"className":"font-serif font-bold text-[1.0625rem] tracking-tight text-[var(--text)] group-hover:text-[var(--accent)] transition-colors","children":"JapanUnlocked"}]]}],["$","nav",null,{"aria-label":"Main navigation","children":["$","ul",null,{"className":"flex items-center gap-6 text-sm font-medium text-[var(--muted)]","children":[["$","li",null,{"children":["$","a",null,{"href":"/","className":"hover:text-[var(--text)] transition-colors","children":"Guides"}]}],["$","li",null,{"children":["$","a",null,{"href":"/about","className":"hover:text-[var(--text)] transition-colors","children":"About"}]}],["$","li",null,{"children":["$","a",null,{"href":"/go/kanso-templates","className":"bg-[var(--accent)] text-white px-3.5 py-1.5 rounded text-[0.8125rem] font-semibold hover:bg-[#c44e1a] transition-colors","children":"Free Japan Templates"}]}]]}]}]]}]}],["$","main",null,{"id":"main-content","children":["$","$L3",null,{"parallelRouterKey":"children","segmentPath":["children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":"404"}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],"notFoundStyles":[]}]}],["$","footer",null,{"className":"border-t border-[var(--border)] mt-20 py-10 bg-[var(--surface-warm)]","children":["$","div",null,{"className":"max-w-[1200px] mx-auto px-5 sm:px-8","children":[["$","div",null,{"className":"flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6","children":[["$","div",null,{"children":[["$","div",null,{"className":"flex items-center gap-2 mb-1.5","children":[["$","span",null,{"className":"text-[var(--accent)] font-serif font-bold text-lg","aria-hidden":"true","children":"日"}],["$","span",null,{"className":"font-serif font-bold text-[var(--text)]","children":"JapanUnlocked"}]]}],["$","p",null,{"className":"text-xs text-[var(--muted)] max-w-xs","children":"Practical guides for Japan travel, written by an English speaker living in Tokyo. Some links are affiliate links — they cost you nothing extra."}]]}],["$","nav",null,{"aria-label":"Footer navigation","children":["$","ul",null,{"className":"flex flex-wrap gap-x-5 gap-y-2 text-sm text-[var(--muted)]","children":[["$","li",null,{"children":["$","a",null,{"href":"/","className":"hover:text-[var(--text)] transition-colors","children":"Guides"}]}],["$","li",null,{"children":["$","a",null,{"href":"/about","className":"hover:text-[var(--text)] transition-colors","children":"About"}]}],["$","li",null,{"children":["$","a",null,{"href":"/go/kanso-templates","className":"hover:text-[var(--text)] transition-colors","children":"Kanso Templates"}]}]]}]}]]}],["$","div",null,{"className":"mt-8 pt-6 border-t border-[var(--border)] text-xs text-[var(--muted)]","children":["© ",2026," JapanUnlocked. All rights reserved."]}]]}]}]]}]}]],null],null],["$L6",null]]]]
+7:T45e,{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Q: Can I use Suica on iPhone outside Japan?","acceptedAnswer":{"@type":"Answer","text":"A: No. Suica only works on Japanese transit and payment infrastructure. The card stays active on your device, but you can only use it when you are physically in Japan."}},{"@type":"Question","name":"Q: What happens if my iPhone battery dies at a train gate?","acceptedAnswer":{"@type":"Answer","text":"A: iPhone has a feature called Express Transit which reserves a small amount of battery for Suica after the phone powers off. You typically get a few more taps after the low battery warning. Do not rely on this — charge your phone."}},{"@type":"Question","name":"Q: Can I get a refund on my Suica balance when I leave Japan?","acceptedAnswer":{"@type":"Answer","text":"A: Yes, but only at a JR East station ticket machine or service counter. There is a ¥220 handling fee deducted from the refund. If your remaining balance is small, it may be easier to spend it at a convenience store before you leave.  <!-- FAQ_SCHEMA_END -->"}}]}8:T1878,<pre><code class="language-markdown">---
+title: "How to Use a Suica Card on iPhone and Apple Watch"
+slug: how-to-use-suica-card-iphone
+description: "Step-by-step guide to adding a Suica card to your iPhone or Apple Watch Wallet in Japan — including setup, topping up, and using it at stations and convenience stores."
+keywords: [how to use suica card iphone, suica apple wallet, suica apple watch, add suica to iphone, japan ic card iphone, mobile suica setup]
+category: practical-japan
+affiliate: [klook]
+wordCount: 920
+status: ready
+publishDate: 2026-06-25
+---
+
+# How to Use a Suica Card on iPhone and Apple Watch
+
+If you have an iPhone 7 or later and are visiting Japan, you do not need to carry a physical Suica card. You can load one directly into Apple Wallet, tap through every train gate in the country, and pay at convenience stores without touching your wallet once. I have been doing this for years and it is genuinely one of the best quality-of-life upgrades for getting around Japan.
+
+Here is exactly how to set it up, top it up, and avoid the common mistakes.
+
+---
+
+## What You Need Before You Start
+
+Before opening Apple Wallet, make sure you have the following:
+
+- **iPhone 7 or later** (or Apple Watch Series 3 or later)
+- **iOS 10.1 or later** (iOS 16+ recommended)
+- **A non-Japanese Apple ID is fine** — this works in any region now
+- **A credit or debit card linked to Apple Pay** for topping up
+- **Mobile data or Wi-Fi** during the initial setup
+
+One important note: your phone does not need to be connected to the internet to *use* Suica after setup. The card data lives on the device's secure chip. You only need connectivity when adding money.
+
+---
+
+## How to Add Suica to Your iPhone Wallet
+
+1. Open the **Wallet** app on your iPhone
+2. Tap the **+** button in the top right corner
+3. Select **Transit Card**
+4. Choose **Suica** from the list
+5. Enter the amount you want to load (minimum ¥1,000 is a safe starting point for a few days)
+6. Confirm with Face ID, Touch ID, or your passcode
+7. Wait about 10–15 seconds for the card to be issued
+
+That is it. Your Suica is active immediately. No post office, no machine, no queue.
+
+If you are adding Suica to an **Apple Watch**, open the Watch app on your iPhone, go to Wallet &#x26; Apple Pay, and follow the same steps. The card lives on the watch independently — useful when you want to leave your phone in your bag.
+
+**Already have a physical Suica card?** You can transfer the balance from a physical card to iPhone at any JR East station using a green ticket machine. Ask a station attendant if you cannot find the option — they deal with this daily.
+
+---
+
+## Using Suica at Train Gates and Shops
+
+Hold your iPhone near the IC card reader with the screen face-up. You do not need to unlock your phone or open any app. The same applies to Apple Watch — raise your wrist, tap the reader.
+
+Suica works on:
+
+- JR trains across Japan (Shinkansen excluded — see [our Shinkansen guide](/tokyo-to-kyoto-shinkansen) for how to book those)
+- Tokyo Metro and Toei Subway
+- Most private railways (Hankyu, Odakyu, Keikyu, etc.)
+- Buses in most major cities
+- Convenience stores: 7-Eleven, FamilyMart, Lawson
+- Vending machines, some taxis, and airport express trains including the Narita Express (check [our Narita guide](/narita-airport-to-tokyo) for transport options from the airport)
+
+The card deducts the exact fare automatically. No need to know prices in advance.
+
+---
+
+## How to Top Up Suica on iPhone
+
+You can add money to your Suica in three ways:
+
+1. **In the Wallet app**: Tap your Suica card, tap Add Money, choose an amount, confirm with Apple Pay. Done in under a minute with mobile data.
+2. **At a JR ticket machine**: Select "Charge IC Card" on the touch screen, hold your phone to the reader, insert cash. Works offline.
+3. **At convenience store registers**: Ask the cashier to charge your IC card and hold your phone to their reader.
+
+I keep at least ¥2,000 on mine at all times. Running out at a ticket gate is avoidable — the machine will let you top up on the spot, but it slows you down during rush hour.
+
+---
+
+**Planning your Tokyo days?** Kanso Templates has a free Tokyo 7-Day Itinerary you can download at [kanso-templates.netlify.app](https://kanso-templates.netlify.app) — it is structured around real transit routes and includes daily Suica budget estimates so you know exactly how much to load.
+
+---
+
+## Alternatives If Suica Does Not Work for You
+
+Suica on iPhone does not work on Android (use Pasmo or a physical IC card instead). If your Apple ID or device has a region issue, or you simply prefer a backup, Klook sells day passes for Tokyo Metro that cover unlimited rides on the subway network — [https://www.klook.com/en-US/country/9-japan-things-to-do/_TOKYO_METRO_PASS]. These are worth considering if you are doing heavy subway days and want a flat cost upfront.
+
+For connectivity while moving around, make sure you have data sorted before you land. We cover the best options in [our eSIM guide](/best-esim-japan-2026).
+
+---
+
+## FAQ
+
+&#x3C;!-- FAQ_SCHEMA_START -->
+
+**Q: Can I use Suica on iPhone outside Japan?**
+A: No. Suica only works on Japanese transit and payment infrastructure. The card stays active on your device, but you can only use it when you are physically in Japan.
+
+**Q: What happens if my iPhone battery dies at a train gate?**
+A: iPhone has a feature called Express Transit which reserves a small amount of battery for Suica after the phone powers off. You typically get a few more taps after the low battery warning. Do not rely on this — charge your phone.
+
+**Q: Can I get a refund on my Suica balance when I leave Japan?**
+A: Yes, but only at a JR East station ticket machine or service counter. There is a ¥220 handling fee deducted from the refund. If your remaining balance is small, it may be easier to spend it at a convenience store before you leave.
+
+&#x3C;!-- FAQ_SCHEMA_END -->
+
+---
+
+Heading to Japan for two weeks? The **Kanso Templates Japan 14-Day Adventure Bundle** ($12) includes day-by-day itineraries for Tokyo, Kyoto, Osaka, and Hiroshima, structured around actual train schedules and transit costs. Get it at [kanso-templates.netlify.app](https://kanso-templates.netlify.app).
+</code></pre>
+2:[["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"$7"}}],["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"{\"@context\":\"https://schema.org\",\"@type\":\"Article\",\"author\":{\"@type\":\"Organization\",\"name\":\"JapanUnlocked\"},\"publisher\":{\"@type\":\"Organization\",\"name\":\"JapanUnlocked\",\"url\":\"https://japanunlocked.com\"},\"url\":\"https://japanunlocked.com/how-to-use-suica-card-iphone\"}"}}],["$","div",null,{"className":"max-w-[1200px] mx-auto px-5 sm:px-8 py-10 sm:py-14","children":["$","div",null,{"className":"flex gap-12","children":[["$","div",null,{"className":"hidden lg:flex flex-col items-center pt-2 select-none","aria-hidden":"true","children":[["$","div",null,{"className":"jp-accent-text","style":{"height":"200px","color":"var(--border)"},"children":"旅行案内"}],["$","div",null,{"style":{"width":"1px","flex":1,"background":"var(--border)","marginTop":"8px"}}]]}],["$","article",null,{"className":"flex-1 min-w-0 max-w-prose","children":[["$","nav",null,{"aria-label":"Breadcrumb","className":"mb-6","children":["$","ol",null,{"className":"flex items-center gap-2 text-xs text-[var(--muted)]","children":[["$","li",null,{"children":["$","a",null,{"href":"/","className":"hover:text-[var(--text)] transition-colors","children":"Guides"}]}],["$","li",null,{"aria-hidden":"true","children":"/"}],"$undefined",["$","li",null,{"className":"text-[var(--text)] font-medium truncate max-w-[200px]","children":"$undefined"}]]}]}],["$","header",null,{"className":"mb-8 pb-8 border-b border-[var(--border)]","children":["$undefined",["$","h1",null,{"className":"font-serif font-bold text-[var(--text)] leading-[1.1] mb-4","style":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","letterSpacing":"-0.02em"},"children":"$undefined"}],["$","p",null,{"className":"text-[var(--muted)] text-lg leading-relaxed mb-4","children":"$undefined"}],["$","div",null,{"className":"flex flex-wrap items-center gap-4 text-xs text-[var(--muted)]","children":["$undefined","$undefined"]}]]}],"$undefined",["$","div",null,{"className":"article-body fade-in","dangerouslySetInnerHTML":{"__html":"$8"}}],"$undefined",["$","section",null,{"className":"mt-10 border-t border-[var(--border)] pt-8","children":[["$","h2",null,{"className":"font-serif font-bold text-xl mb-6","style":{"letterSpacing":"-0.015em"},"children":"Quick answers"}],["$","dl",null,{"className":"flex flex-col gap-5","children":[["$","div","0",{"className":"border-l-2 border-[var(--accent)] pl-4","children":[["$","dt",null,{"className":"font-semibold text-[var(--text)] mb-1 font-sans text-sm","children":"Q: Can I use Suica on iPhone outside Japan?"}],["$","dd",null,{"className":"text-[var(--muted)] text-sm leading-relaxed","children":"A: No. Suica only works on Japanese transit and payment infrastructure. The card stays active on your device, but you can only use it when you are physically in Japan."}]]}],["$","div","1",{"className":"border-l-2 border-[var(--accent)] pl-4","children":[["$","dt",null,{"className":"font-semibold text-[var(--text)] mb-1 font-sans text-sm","children":"Q: What happens if my iPhone battery dies at a train gate?"}],["$","dd",null,{"className":"text-[var(--muted)] text-sm leading-relaxed","children":"A: iPhone has a feature called Express Transit which reserves a small amount of battery for Suica after the phone powers off. You typically get a few more taps after the low battery warning. Do not rely on this — charge your phone."}]]}],["$","div","2",{"className":"border-l-2 border-[var(--accent)] pl-4","children":[["$","dt",null,{"className":"font-semibold text-[var(--text)] mb-1 font-sans text-sm","children":"Q: Can I get a refund on my Suica balance when I leave Japan?"}],["$","dd",null,{"className":"text-[var(--muted)] text-sm leading-relaxed","children":"A: Yes, but only at a JR East station ticket machine or service counter. There is a ¥220 handling fee deducted from the refund. If your remaining balance is small, it may be easier to spend it at a convenience store before you leave.  <!-- FAQ_SCHEMA_END -->"}]]}]]}]]}],["$","div",null,{"className":"mt-12 bg-[var(--surface-warm)] border border-[var(--border)] px-6 py-6","children":[["$","p",null,{"className":"text-[0.6875rem] font-sans uppercase tracking-[0.15em] text-[var(--muted)] mb-2","children":"Planning your trip"}],["$","p",null,{"className":"font-serif font-semibold text-[var(--text)] mb-2","children":"Use our free Notion templates to plan this trip"}],["$","p",null,{"className":"text-sm text-[var(--muted)] mb-4","children":"Itinerary planner, packing list, and JR Pass calculator — ready to use, no setup required."}],["$","a",null,{"href":"/go/kanso-templates","className":"inline-flex items-center gap-1.5 text-[var(--accent)] font-semibold text-sm hover:underline underline-offset-4","children":"Get the free templates →"}]]}]]}]]}]}]]
+6:[["$","meta","0",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","1",{"charSet":"utf-8"}],["$","meta","2",{"name":"author","content":"JapanUnlocked"}],["$","meta","3",{"name":"robots","content":"index, follow"}],["$","meta","4",{"property":"og:url","content":"https://japanunlocked.com/how-to-use-suica-card-iphone/"}],["$","meta","5",{"property":"og:type","content":"article"}],["$","meta","6",{"name":"twitter:card","content":"summary_large_image"}]]
+1:null
