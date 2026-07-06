@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { DEMO_CLINIC_ID } from "@/lib/supabase";
 
 type Lang = "en" | "ja";
@@ -317,7 +317,7 @@ export default function BookPage() {
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1.5">

@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
-import { use } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 
 type Lang = "en" | "ja";
 
@@ -91,8 +90,8 @@ interface Result {
   email_sent: boolean;
 }
 
-export default function ClinicBookPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
+export default function ClinicBookPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const [lang, setLang] = useState<Lang>("ja");
   const t = tx[lang];
 
@@ -351,7 +350,7 @@ export default function ClinicBookPage({ params }: { params: Promise<{ slug: str
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1.5">
