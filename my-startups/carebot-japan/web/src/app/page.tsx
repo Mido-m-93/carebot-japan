@@ -11,7 +11,7 @@ const copy = {
     hero_tag: "AI Appointment Scheduling for Clinics in Japan",
     hero_title: "Your reception desk,\non autopilot.",
     hero_sub:
-      "Patients book online. AI reads the request, extracts the details, and confirms the appointment — automatically. No phone calls. No manual entry.",
+      "Patients book online. AI reads the request, extracts the details, and confirms the appointment automatically. No phone calls. No manual entry.",
     hero_cta: "Start for free",
     hero_sub_cta: "No credit card required",
 
@@ -25,7 +25,7 @@ const copy = {
       {
         n: "2",
         title: "AI processes it instantly",
-        sub: "CareBot reads the request, extracts name, date, time, and visit reason — and books it automatically.",
+        sub: "CareBot reads the request, extracts name, date, time, and visit reason, and books it automatically.",
       },
       {
         n: "3",
@@ -44,7 +44,7 @@ const copy = {
       {
         icon: "📋",
         title: "Review Queue",
-        sub: "Ambiguous messages go to a queue. Staff review and confirm with one click — no data entry.",
+        sub: "Ambiguous messages go to a queue. Staff review and confirm with one click. No data entry needed.",
       },
       {
         icon: "📊",
@@ -250,7 +250,7 @@ export default function LandingPage() {
             <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-            <span className="ml-2 text-xs text-gray-400">CareBot Japan — Dashboard</span>
+            <span className="ml-2 text-xs text-gray-400">CareBot Japan Dashboard</span>
           </div>
           <div className="grid grid-cols-4 gap-3 mb-4">
             {[
@@ -267,7 +267,7 @@ export default function LandingPage() {
           </div>
           <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             {[
-              { name: lang === "ja" ? "田中 花子" : "Hanako Tanaka", time: "09:30", reason: lang === "ja" ? "定期検診" : "Check-up", status: "confirmed" },
+              { name: lang === "ja" ? "田中 花子" : "Hanako Tanaka", time: "09:30", reason: lang === "ja" ? "定期検診" : "Checkup", status: "confirmed" },
               { name: lang === "ja" ? "山田 太郎" : "Taro Yamada", time: "11:00", reason: lang === "ja" ? "腰痛" : "Back pain", status: "confirmed" },
               { name: lang === "ja" ? "鈴木 美咲" : "Misaki Suzuki", time: "14:30", reason: lang === "ja" ? "風邪" : "Cold", status: "pending" },
             ].map((row, i) => (
