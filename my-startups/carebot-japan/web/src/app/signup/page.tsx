@@ -33,6 +33,15 @@ export default function SignupPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
+      return;
+    }
+
+    // Sign in immediately after signup (works whether email confirmation is on or off)
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) {
+      // Signup worked but confirmation is required — tell the user clearly
+      setError("Account created! Please check your email to confirm before signing in.");
+      setLoading(false);
     } else {
       window.location.href = "/onboarding";
     }

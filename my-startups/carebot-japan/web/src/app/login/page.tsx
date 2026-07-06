@@ -42,12 +42,18 @@ function LoginContent() {
     setLoading(true);
     setError(null);
     setNotice(null);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) {
-      setError(signInError.message);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+      } else {
+        window.location.href = "/dashboard";
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Unexpected error. Please try again.");
       setLoading(false);
-    } else {
-      window.location.href = "/dashboard";
     }
   }
 
