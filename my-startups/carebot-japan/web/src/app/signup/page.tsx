@@ -43,7 +43,7 @@ export default function SignupPage() {
       setError("Account created! Please check your email to confirm before signing in.");
       setLoading(false);
     } else {
-      window.location.href = "/onboarding";
+      router.push("/onboarding");
     }
   }
 

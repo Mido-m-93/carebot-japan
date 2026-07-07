@@ -1,7 +1,7 @@
 ﻿"use client";
 import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -14,6 +14,7 @@ export default function LoginPage() {
 }
 
 function LoginContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { lang, toggle, t } = useLanguage();
 
@@ -66,7 +67,7 @@ function LoginContent() {
         setLoading(false);
       } else {
         logStep("Success — redirecting to /dashboard");
-        window.location.href = "/dashboard";
+        router.push("/dashboard");
       }
     } catch (err) {
       logStep(`Caught exception: ${err instanceof Error ? err.message : String(err)}`);
