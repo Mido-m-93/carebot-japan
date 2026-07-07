@@ -12,8 +12,8 @@
     "next": "14.2.35",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "@supabase/supabase-js": "^2.43.0",
-    "@supabase/ssr": "^0.3.0",
+    "@supabase/supabase-js": "^2.110.0",
+    "@supabase/ssr": "^0.12.0",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3"
   },
