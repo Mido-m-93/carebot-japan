@@ -67,6 +67,7 @@ function LoginContent() {
         setLoading(false);
       } else {
         logStep("Success — redirecting to /dashboard");
+        router.refresh();
         router.push("/dashboard");
       }
     } catch (err) {
