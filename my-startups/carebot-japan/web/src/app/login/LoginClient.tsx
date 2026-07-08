@@ -29,12 +29,6 @@ function LoginContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionStatus, setActionStatus] = useState<"idle" | "success" | "error">("idle");
 
-  // TEMPORARY debug panel for diagnosing the login freeze. Remove once resolved.
-  const [debugSteps, setDebugSteps] = useState<string[]>([]);
-  function logStep(msg: string) {
-    setDebugSteps((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
-  }
-
   useEffect(() => {
     if (searchParams.get("error") === "confirmation_failed") {
       setError("Confirmation link is invalid or has expired. Please ask your admin to resend.");
@@ -49,10 +43,7 @@ function LoginContent() {
     setLoading(true);
     setError(null);
     setNotice(null);
-    setDebugSteps([]);
-    logStep("Form submitted");
     try {
-      logStep("Calling supabase.auth.signInWithPassword...");
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Timed out after 8s waiting for Supabase")), 8000)
       );
@@ -60,18 +51,14 @@ function LoginContent() {
         supabase.auth.signInWithPassword({ email, password }),
         timeout,
       ]) as Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
-      logStep("Got a response back from Supabase");
       if (signInError) {
-        logStep(`Error from Supabase: ${signInError.message}`);
         setError(signInError.message);
         setLoading(false);
       } else {
-        logStep("Success — redirecting to /dashboard");
         router.refresh();
         router.push("/dashboard");
       }
     } catch (err) {
-      logStep(`Caught exception: ${err instanceof Error ? err.message : String(err)}`);
       console.error("Login error:", err);
       setError("Unexpected error. Please try again.");
       setLoading(false);
@@ -239,13 +226,6 @@ function LoginContent() {
               {t.login_signup_cta}
             </Link>
           </p>
-        )}
-
-        {/* TEMPORARY debug panel — remove once the login freeze is diagnosed */}
-        {debugSteps.length > 0 && (
-          <pre className="mt-4 bg-gray-900 text-green-400 text-[11px] rounded-lg p-3 whitespace-pre-wrap break-words">
-            {debugSteps.join("\n")}
-          </pre>
         )}
       </div>
     </div>
