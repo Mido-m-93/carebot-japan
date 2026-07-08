@@ -88,7 +88,9 @@ def classify_intent(message: str) -> dict:
             {"role": "user", "content": message},
         ],
     )
-    return _parse_json(response.choices[0].message.content)
+    raw = response.choices[0].message.content
+    print(f"[debug classify_intent] input={message!r} raw_output={raw!r}")
+    return _parse_json(raw)
 
 
 def extract_appointment(message: str, today_jst: str) -> dict:
