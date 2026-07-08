@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from services.db import get_db
 from services.scheduling import process_message
 from services.email import send_appointment_confirmation
+from services.calendar import push_appointment_to_calendar
 from routers.appointments import get_available_slots
 
 router = APIRouter()
@@ -100,19 +101,30 @@ def resolve_queue_item(item_id: str, body: ResolveRequest):
 
     # Send confirmation email if patient email is available
     email_id = None
+    calendar_event_id = None
     patient_email = r.get("patient_email") if body.create_appointment else None
-    if patient_email:
+    if body.create_appointment and appointment_id:
         clinic_row = db.table("clinics").select("name, name_jp").eq("id", r.get("clinic_id")).single().execute()
         clinic_name = (clinic_row.data.get("name_jp") or clinic_row.data.get("name")) if clinic_row.data else "クリニック"
-        email_id = send_appointment_confirmation(
-            to_email=patient_email,
+
+        if patient_email:
+            email_id = send_appointment_confirmation(
+                to_email=patient_email,
+                patient_name=r.get("patient_name") or "患者様",
+                clinic_name=clinic_name,
+                preferred_date=r.get("preferred_date"),
+                preferred_time=r.get("preferred_time"),
+                visit_reason=r.get("visit_reason"),
+                is_first_visit=r.get("is_first_visit"),
+                lang=r.get("lang", "en"),
+            )
+
+        # Push to calendar (simulated — see services/calendar.py)
+        calendar_event_id = push_appointment_to_calendar(
             patient_name=r.get("patient_name") or "患者様",
             clinic_name=clinic_name,
-            preferred_date=r.get("preferred_date"),
-            preferred_time=r.get("preferred_time"),
+            scheduled_at=appt["scheduled_at"],
             visit_reason=r.get("visit_reason"),
-            is_first_visit=r.get("is_first_visit"),
-            lang=r.get("lang", "en"),
         )
 
     return {
@@ -121,6 +133,7 @@ def resolve_queue_item(item_id: str, body: ResolveRequest):
         "appointment_id": appointment_id,
         "email_sent": email_id is not None,
         "email_error": "No patient email provided" if not patient_email else (None if email_id else "Email send failed — check RESEND_API_KEY"),
+        "calendar_synced": calendar_event_id is not None,
     }
 
 

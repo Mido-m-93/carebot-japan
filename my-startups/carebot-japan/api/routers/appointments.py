@@ -3,6 +3,7 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from services.db import get_db
 from services.email import send_appointment_confirmation
+from services.calendar import push_appointment_to_calendar
 from datetime import datetime, date, time, timedelta, timezone
 
 router = APIRouter()
@@ -76,11 +77,12 @@ def book_appointment(body: BookingRequest):
     result = db.table("appointments").insert(appt).execute()
     appointment_id = result.data[0]["id"] if result.data else None
 
+    clinic_row = db.table("clinics").select("name, name_jp").eq("id", body.clinic_id).single().execute()
+    clinic_name = (clinic_row.data.get("name_jp") or clinic_row.data.get("name")) if clinic_row.data else "クリニック"
+
     # Send confirmation email immediately
     email_sent = False
     if body.patient_email:
-        clinic_row = db.table("clinics").select("name, name_jp").eq("id", body.clinic_id).single().execute()
-        clinic_name = (clinic_row.data.get("name_jp") or clinic_row.data.get("name")) if clinic_row.data else "クリニック"
         email_id = send_appointment_confirmation(
             to_email=body.patient_email,
             patient_name=body.patient_name,
@@ -93,6 +95,14 @@ def book_appointment(body: BookingRequest):
         )
         email_sent = email_id is not None
 
+    # Push to calendar (simulated — see services/calendar.py)
+    calendar_event_id = push_appointment_to_calendar(
+        patient_name=body.patient_name,
+        clinic_name=clinic_name,
+        scheduled_at=appt["scheduled_at"],
+        visit_reason=body.visit_reason,
+    )
+
     return {
         "status": "confirmed",
         "appointment_id": appointment_id,
@@ -100,6 +110,7 @@ def book_appointment(body: BookingRequest):
         "preferred_date": body.preferred_date,
         "preferred_time": body.preferred_time,
         "email_sent": email_sent,
+        "calendar_synced": calendar_event_id is not None,
     }
 
 
