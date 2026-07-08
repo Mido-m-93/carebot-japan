@@ -25,7 +25,6 @@ export default function DashboardLayoutClient({ children }: { children: ReactNod
     { href: "/dashboard", label: t.nav_overview },
     { href: "/dashboard/appointments", label: t.nav_appointments },
     { href: "/dashboard/review", label: t.nav_review },
-    { href: "/dashboard/fax", label: t.nav_fax },
     { href: "/dashboard/claims", label: t.nav_claims },
     { href: "/dashboard/test", label: t.nav_test },
     { href: "/dashboard/billing", label: t.nav_billing },
@@ -39,14 +38,14 @@ export default function DashboardLayoutClient({ children }: { children: ReactNod
   if (checking) return null;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-56 bg-teal-800 text-teal-50 flex flex-col">
+      <aside className="w-56 bg-teal-800 text-teal-50 flex flex-col shrink-0">
         <div className="px-5 py-5 border-b border-teal-600">
           <p className="font-semibold text-sm tracking-wide">CareBot Japan</p>
           <p className="text-xs text-teal-200 mt-0.5">{t.nav_clinic}</p>
         </div>
-        <nav className="flex-1 py-4">
+        <nav className="flex-1 overflow-y-auto py-4">
           {navItems.map((item) => {
             const active =
               item.href === "/dashboard"
@@ -78,15 +77,17 @@ export default function DashboardLayoutClient({ children }: { children: ReactNod
           </div>
         </nav>
         <div className="px-5 py-4 border-t border-teal-600 space-y-2">
-          <p className="text-xs text-teal-400">MVP v0.1</p>
-          {/* Language toggle */}
-          <button
-            onClick={toggle}
-            className="w-full text-left text-xs text-teal-300 hover:text-white transition-colors py-1 flex items-center gap-2"
-          >
-            <span className="text-base leading-none">{lang === "en" ? "🇯🇵" : "🇬🇧"}</span>
-            <span>{lang === "en" ? "日本語に切替" : "Switch to English"}</span>
-          </button>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-teal-400">MVP v0.1</p>
+            {/* Language toggle */}
+            <button
+              onClick={toggle}
+              className="text-xs font-semibold text-teal-200 hover:text-white border border-teal-600 hover:border-teal-400 rounded px-1.5 py-0.5 transition-colors"
+              title={lang === "en" ? "日本語に切替" : "Switch to English"}
+            >
+              {lang === "en" ? "日本語" : "EN"}
+            </button>
+          </div>
           <button
             onClick={handleLogout}
             className="w-full text-left text-xs text-teal-300 hover:text-white transition-colors py-1"

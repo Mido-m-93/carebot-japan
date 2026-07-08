@@ -6,11 +6,11 @@ import os
 
 load_dotenv("../../.env.local")  # local dev only; Railway injects vars directly
 
-from routers import webhooks, appointments, queue, fax, claims, billing, clinics
+from routers import webhooks, appointments, queue, claims, billing, clinics
 
 app = FastAPI(
     title="CareBot Japan — Scheduling API",
-    description="AI-powered clinic scheduling, fax intake, and claims automation",
+    description="AI-powered clinic scheduling and claims automation",
     version="0.2.0",
 )
 
@@ -28,7 +28,6 @@ app.add_middleware(
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 app.include_router(appointments.router, prefix="/appointments", tags=["appointments"])
 app.include_router(queue.router, prefix="/queue", tags=["queue"])
-app.include_router(fax.router, prefix="/fax", tags=["fax"])
 app.include_router(claims.router, prefix="/claims", tags=["claims"])
 app.include_router(billing.router, prefix="/billing", tags=["billing"])
 app.include_router(clinics.router, prefix="/clinics", tags=["clinics"])
