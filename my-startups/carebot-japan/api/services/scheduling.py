@@ -5,9 +5,13 @@ Core scheduling pipeline.
 For a given clinic + raw message:
 1. Classify intent (Haiku)
 2. If appointment_request: extract details (Sonnet)
-3. If confident: write appointment to Supabase, send SMS
-4. If not confident: push to review_queue
+3. Write appointment to Supabase, send SMS — always, regardless of confidence
+4. If confidence was low, ALSO push to review_queue (status "auto_confirmed")
+   as an after-the-fact spot-check — this never blocks the booking
 5. Write audit log
+
+Non-appointment intents (cancel, inquiry, out_of_scope) still go to the
+review_queue as "pending" — there's no appointment to auto-confirm there.
 
 This runs synchronously for simplicity in MVP.
 In production, steps 1-5 run inside a background job worker.
@@ -80,20 +84,6 @@ def process_message(
             "reason": "non_appointment_intent",
         }
 
-    # ── Low intent confidence: also queue for review ──────────
-    if intent_confidence < INTENT_CONFIDENCE_THRESHOLD:
-        _push_review_queue(
-            db, clinic_id, source, raw_message,
-            intent, intent_confidence, extracted_data=None,
-            field_confidences=None,
-        )
-        return {
-            "status": "queued_for_review",
-            "intent": intent,
-            "confidence": intent_confidence,
-            "reason": "low_intent_confidence",
-        }
-
     # ── Step 2: Appointment detail extraction ─────────────────
     _log_audit(db, clinic_id, "claude_extraction_run", metadata={
         "step": "appointment_extraction",
@@ -104,23 +94,14 @@ def process_message(
     overall_confidence = extraction.get("confidence", 0.0)
     field_confidences = extraction.get("field_confidences", {})
 
-    # ── Low extraction confidence: queue for review ───────────
-    if overall_confidence < EXTRACTION_CONFIDENCE_THRESHOLD:
-        _push_review_queue(
-            db, clinic_id, source, raw_message,
-            intent, intent_confidence,
-            extracted_data=extraction,
-            field_confidences=field_confidences,
-        )
-        return {
-            "status": "queued_for_review",
-            "intent": intent,
-            "confidence": overall_confidence,
-            "reason": "low_extraction_confidence",
-            "extracted": extraction,
-        }
+    # Low confidence (intent OR extraction) no longer blocks the booking —
+    # it's flagged for after-the-fact staff review instead, see Step 3b.
+    needs_spot_check = (
+        intent_confidence < INTENT_CONFIDENCE_THRESHOLD
+        or overall_confidence < EXTRACTION_CONFIDENCE_THRESHOLD
+    )
 
-    # ── Step 3: Write appointment to Supabase ─────────────────
+    # ── Step 3: Write appointment to Supabase (always) ────────
     appointment_id = str(uuid.uuid4())
     scheduled_at = None
     if extraction.get("preferred_date") and extraction.get("preferred_time"):
@@ -169,6 +150,17 @@ def process_message(
                 "twilio_sid": sms_sid,
             })
 
+    # ── Step 3b: Low confidence → flag for after-the-fact spot-check ──
+    # The appointment above is already booked; this never blocks it.
+    if needs_spot_check:
+        _push_review_queue(
+            db, clinic_id, source, raw_message,
+            intent, intent_confidence,
+            extracted_data={**extraction, "appointment_id": appointment_id},
+            field_confidences=field_confidences,
+            status="auto_confirmed",
+        )
+
     return {
         "status": "confirmed",
         "appointment_id": appointment_id,
@@ -176,6 +168,7 @@ def process_message(
         "patient_name": extraction.get("patient_name"),
         "sms_sent": sms_sid is not None,
         "confidence": overall_confidence,
+        "flagged_for_review": needs_spot_check,
     }
 
 
@@ -185,6 +178,7 @@ def _push_review_queue(
     db, clinic_id, source, raw_input,
     intent, intent_confidence,
     extracted_data, field_confidences,
+    status="pending",
 ):
     item = {
         "clinic_id": clinic_id,
@@ -194,7 +188,7 @@ def _push_review_queue(
         "intent_confidence": intent_confidence,
         "extracted_data": extracted_data,
         "field_confidences": field_confidences,
-        "status": "pending",
+        "status": status,
     }
     result = db.table("review_queue").insert(item).execute()
     _log_audit(db, clinic_id, "review_item_created", metadata={
