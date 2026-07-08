@@ -19,6 +19,8 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from services.scheduling import process_message
 from services.email import send_appointment_confirmation
+from services.line import send_line_reply
+from services.ai import generate_confirmation
 
 router = APIRouter()
 
@@ -34,6 +36,38 @@ def _verify_line_signature(body: bytes, signature: str) -> bool:
         hmac.new(secret.encode(), body, hashlib.sha256).digest()
     ).decode()
     return hmac.compare_digest(expected, signature)
+
+
+def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
+    """Run the scheduling pipeline, then push a reply back to the patient in LINE."""
+    result = process_message(
+        clinic_id=clinic_id,
+        raw_message=text,
+        source="line",
+    )
+    if not user_id:
+        return
+
+    status = result.get("status")
+    if status == "confirmed":
+        if result.get("scheduled_at"):
+            reply = generate_confirmation(
+                patient_name=result.get("patient_name"),
+                date=result["scheduled_at"][:10],
+                time=result["scheduled_at"][11:16],
+                clinic_name_jp="新宿デモクリニック",
+            )
+        else:
+            name = result.get("patient_name") or "お客様"
+            reply = f"{name}様、ご予約を承りました。日時の詳細はクリニックまでお問い合わせください。"
+        if result.get("flagged_for_review"):
+            reply += "\n\n※内容を確認の上、担当者よりご連絡する場合がございます。"
+    elif status == "queued_for_review":
+        reply = "ご連絡ありがとうございます。内容を確認の上、担当者よりご連絡いたします。"
+    else:
+        reply = "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
+
+    send_line_reply(user_id, reply)
 
 
 @router.post("/line")
@@ -61,16 +95,12 @@ async def line_webhook(request: Request, background_tasks: BackgroundTasks):
             continue
 
         text = event["message"]["text"]
+        user_id = event.get("source", {}).get("userId", "")
         # In MVP we use the demo clinic. Production: resolve from Line channel ID.
         clinic_id = "00000000-0000-0000-0000-000000000001"
 
         # Process in background so we return 200 immediately to Line
-        background_tasks.add_task(
-            process_message,
-            clinic_id=clinic_id,
-            raw_message=text,
-            source="line",
-        )
+        background_tasks.add_task(_process_line_and_reply, clinic_id, text, user_id)
 
     return {"status": "ok"}
 
