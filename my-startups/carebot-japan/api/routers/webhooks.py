@@ -12,6 +12,7 @@ and process async, then send the reply via the Line reply API.
 """
 import hashlib
 import hmac
+import html
 import os
 import base64
 import re
@@ -30,11 +31,26 @@ def _verify_line_signature(body: bytes, signature: str) -> bool:
     """Verify Line webhook signature to prevent spoofing."""
     secret = os.getenv("LINE_CHANNEL_SECRET", "")
     if not secret:
-        return True  # Skip verification in dev if no secret set
+        # Fail closed: an unconfigured secret must never be treated as "verification passed".
+        return False
 
     expected = base64.b64encode(
         hmac.new(secret.encode(), body, hashlib.sha256).digest()
     ).decode()
+    return hmac.compare_digest(expected, signature)
+
+
+def _verify_mailgun_signature(timestamp: str, token: str, signature: str) -> bool:
+    """Verify Mailgun's inbound webhook signature to prevent spoofed requests."""
+    signing_key = os.getenv("MAILGUN_SIGNING_KEY", "")
+    if not signing_key or not timestamp or not token or not signature:
+        return False
+
+    expected = hmac.new(
+        key=signing_key.encode(),
+        msg=f"{timestamp}{token}".encode(),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
     return hmac.compare_digest(expected, signature)
 
 
@@ -168,7 +184,7 @@ def _send_ack(patient_email: str, patient_name: str, result: dict):
             "html": f"""
             <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
               <h2 style="color:#0f766e">新宿デモクリニック</h2>
-              <p>Dear {patient_name or 'Patient'},</p>
+              <p>Dear {html.escape(patient_name) if patient_name else 'Patient'},</p>
               <p>Thank you for your email. We have received your appointment request and will confirm the details shortly.</p>
               <p style="color:#6b7280;font-size:13px">ご連絡ありがとうございます。予約リクエストを受け付けました。確認後にご連絡いたします。</p>
               <p style="font-size:12px;color:#9ca3af;margin-top:24px">Powered by CareBot Japan</p>
@@ -185,6 +201,13 @@ async def email_webhook(request: Request, background_tasks: BackgroundTasks):
     Returns 200 immediately; processing runs in background.
     """
     form = await request.form()
+
+    if not _verify_mailgun_signature(
+        timestamp=str(form.get("timestamp") or ""),
+        token=str(form.get("token") or ""),
+        signature=str(form.get("signature") or ""),
+    ):
+        raise HTTPException(status_code=403, detail="Invalid Mailgun signature")
 
     from_raw   = str(form.get("From") or form.get("from") or "")
     sender     = str(form.get("sender") or "")

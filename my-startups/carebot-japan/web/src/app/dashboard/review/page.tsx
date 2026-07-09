@@ -1,7 +1,7 @@
 ﻿// apps/web/src/app/dashboard/review/page.tsx
 "use client";
 import { useEffect, useState } from "react";
-import { supabase, API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
+import { supabase, API_URL } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface QueueItem {
@@ -33,6 +33,7 @@ function ConfidenceBadge({ value }: { value: number | null }) {
 export default function ReviewQueuePage() {
   const { t, lang } = useLanguage();
   const [items, setItems] = useState<QueueItem[]>([]);
+  const [autoConfirmedItems, setAutoConfirmedItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
@@ -43,11 +44,20 @@ export default function ReviewQueuePage() {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
 
+  async function authHeader() {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session ? { Authorization: `Bearer ${session.access_token}` } : null;
+  }
+
   async function load() {
-    const data = await fetch(`${API_URL}/queue/${DEMO_CLINIC_ID}?status=pending`)
-      .then((r) => r.ok ? r.json() : [])
-      .catch(() => []);
-    setItems(Array.isArray(data) ? data as QueueItem[] : []);
+    const headers = await authHeader();
+    if (!headers) { setLoading(false); return; }
+    const [pending, autoConfirmed] = await Promise.all([
+      fetch(`${API_URL}/queue/?status=pending`, { headers }).then((r) => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${API_URL}/queue/?status=auto_confirmed`, { headers }).then((r) => r.ok ? r.json() : []).catch(() => []),
+    ]);
+    setItems(Array.isArray(pending) ? pending as QueueItem[] : []);
+    setAutoConfirmedItems(Array.isArray(autoConfirmed) ? autoConfirmed as QueueItem[] : []);
     setLoading(false);
   }
 
@@ -66,7 +76,6 @@ export default function ReviewQueuePage() {
     setResolveError(null);
     const extracted = item.extracted_data ?? {};
     const resolution = {
-      clinic_id: DEMO_CLINIC_ID,
       patient_name: getEdit(item.id, "patient_name", extracted.patient_name as string),
       patient_email: getEdit(item.id, "patient_email", extracted.patient_email as string),
       patient_phone: getEdit(item.id, "patient_phone", extracted.patient_phone as string),
@@ -78,9 +87,11 @@ export default function ReviewQueuePage() {
       raw_message: item.raw_input,
     };
     try {
+      const headers = await authHeader();
+      if (!headers) { setResolveError("Not signed in"); setResolving(null); return; }
       const res = await fetch(`${API_URL}/queue/${item.id}/resolve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify({ resolved_by: userId, resolution, create_appointment: true }),
       });
       if (res.status === 409) {
@@ -109,7 +120,9 @@ export default function ReviewQueuePage() {
   }
 
   async function dismiss(itemId: string) {
-    await fetch(`${API_URL}/queue/${itemId}/dismiss`, { method: "POST" });
+    const headers = await authHeader();
+    if (!headers) return;
+    await fetch(`${API_URL}/queue/${itemId}/dismiss`, { method: "POST", headers });
     await load();
   }
 
@@ -228,6 +241,81 @@ export default function ReviewQueuePage() {
           );
         })}
       </div>
+
+      {/* Auto-confirmed — spot check (never blocked the booking, staff just verify accuracy) */}
+      {!loading && autoConfirmedItems.length > 0 && (
+        <div className="mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">{t.review_auto_title}</h2>
+              <p className="text-sm text-gray-500 mt-1">{t.review_auto_subtitle}</p>
+            </div>
+            <span className="text-sm text-gray-400">{t.items_flagged(autoConfirmedItems.length)}</span>
+          </div>
+
+          <div className="space-y-5">
+            {autoConfirmedItems.map((item) => {
+              const ext = item.extracted_data ?? {};
+              const conf = item.field_confidences ?? {};
+              return (
+                <div key={item.id} className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+                  <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-amber-50">
+                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                      {item.source.toUpperCase()}
+                    </span>
+                    <span className="text-xs text-gray-500">Intent: {item.intent ?? "unknown"}</span>
+                    <ConfidenceBadge value={item.intent_confidence} />
+                    <span className="text-xs text-gray-400 ml-auto">
+                      {new Date(item.created_at).toLocaleString(lang === "ja" ? "ja-JP" : "en-US", {
+                        month: "short", day: "numeric",
+                        hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo",
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-0 divide-x divide-gray-100">
+                    <div className="p-5">
+                      <p className="text-xs font-medium text-gray-400 mb-2">{t.review_patient_msg}</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-lg p-3">
+                        {item.raw_input}
+                      </p>
+                    </div>
+
+                    <div className="p-5">
+                      <p className="text-xs font-medium text-gray-400 mb-2">{t.review_ai_result}</p>
+                      <div className="space-y-1">
+                        {fields.map(({ key, label }) => {
+                          const raw = ext[key] as string | null;
+                          const fieldConf = conf[key];
+                          const isLow = fieldConf !== undefined && fieldConf < 0.8;
+                          return (
+                            <div key={key} className={`rounded p-2 ${isLow ? "bg-amber-50" : ""}`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <label className="text-xs text-gray-400">{label}</label>
+                                {fieldConf !== undefined && <ConfidenceBadge value={fieldConf} />}
+                              </div>
+                              <p className="text-sm text-gray-700 px-2 py-1">{raw ?? t.review_field_empty}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 px-5 py-3 border-t border-gray-100 bg-gray-50">
+                    <button
+                      onClick={() => dismiss(item.id)}
+                      className="px-4 py-1.5 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+                    >
+                      {t.review_mark_reviewed}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

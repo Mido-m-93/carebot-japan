@@ -1,9 +1,11 @@
 # apps/api/routers/appointments.py
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Header
 from pydantic import BaseModel
+from typing import Annotated
 from services.db import get_db
 from services.email import send_appointment_confirmation
 from services.calendar import push_appointment_to_calendar
+from services.auth import resolve_clinic, require_own_clinic
 from datetime import datetime, date, time, timedelta, timezone
 
 router = APIRouter()
@@ -187,13 +189,14 @@ def available_slots(
     return get_available_slots(db, clinic_id, date)
 
 
-@router.get("/{clinic_id}")
+@router.get("/")
 def list_appointments(
-    clinic_id: str,
+    authorization: Annotated[str | None, Header()] = None,
     from_date: str = Query(default=None, description="YYYY-MM-DD"),
     to_date: str = Query(default=None, description="YYYY-MM-DD"),
 ):
-    """List appointments for a clinic, optionally filtered by date range."""
+    """List appointments for the caller's clinic, optionally filtered by date range."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
     query = (
         db.table("appointments")
@@ -210,13 +213,16 @@ def list_appointments(
 
 
 @router.patch("/{appointment_id}/cancel")
-def cancel_appointment(appointment_id: str):
-    """Cancel an appointment."""
+def cancel_appointment(
+    appointment_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Cancel an appointment. Caller must be staff at the appointment's own clinic."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
-    result = (
-        db.table("appointments")
-        .update({"status": "cancelled"})
-        .eq("id", appointment_id)
-        .execute()
-    )
+
+    existing = db.table("appointments").select("clinic_id").eq("id", appointment_id).maybe_single().execute()
+    require_own_clinic(existing.data["clinic_id"] if existing.data else None, clinic_id, "Appointment not found")
+
+    db.table("appointments").update({"status": "cancelled"}).eq("id", appointment_id).execute()
     return {"status": "cancelled", "appointment_id": appointment_id}

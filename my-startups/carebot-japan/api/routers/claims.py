@@ -9,10 +9,12 @@ POST /claims/{id}/submit — submit claim (triggers AI review)
 POST /claims/{id}/status — update claim status (admin)
 """
 import uuid
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
+from typing import Annotated
 from services.db import get_db
 from services.document_ai import review_claim
+from services.auth import resolve_clinic, require_own_clinic
 
 router = APIRouter()
 
@@ -20,7 +22,6 @@ router = APIRouter()
 # ── Models ────────────────────────────────────────────────────
 
 class CreateClaimRequest(BaseModel):
-    clinic_id: str
     appointment_id: str | None = None
     document_id: str | None = None
     patient_name: str | None = None
@@ -43,14 +44,18 @@ class UpdateStatusRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────
 
 @router.post("/")
-async def create_claim(payload: CreateClaimRequest):
-    """Create a new claim in draft status."""
+async def create_claim(
+    payload: CreateClaimRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Create a new claim in draft status for the caller's clinic."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
     claim_id = str(uuid.uuid4())
 
     row = {
         "id": claim_id,
-        "clinic_id": payload.clinic_id,
+        "clinic_id": clinic_id,
         "appointment_id": payload.appointment_id,
         "document_id": payload.document_id,
         "patient_name": payload.patient_name,
@@ -66,14 +71,19 @@ async def create_claim(payload: CreateClaimRequest):
     }
 
     db.table("claims").insert(row).execute()
-    _log(db, payload.clinic_id, "claim_created", claim_id, {"status": "draft"})
+    _log(db, clinic_id, "claim_created", claim_id, {"status": "draft"})
 
     return {"status": "created", "claim_id": claim_id}
 
 
-@router.get("/{clinic_id}")
-async def list_claims(clinic_id: str, status: str | None = None, limit: int = 50):
-    """List all claims for a clinic."""
+@router.get("/")
+async def list_claims(
+    authorization: Annotated[str | None, Header()] = None,
+    status: str | None = None,
+    limit: int = 50,
+):
+    """List all claims for the caller's clinic."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
     query = (
         db.table("claims")
@@ -90,25 +100,35 @@ async def list_claims(clinic_id: str, status: str | None = None, limit: int = 50
 
 
 @router.get("/detail/{claim_id}")
-async def get_claim(claim_id: str):
-    """Get full claim details."""
+async def get_claim(
+    claim_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Get full claim details. Caller must own the claim's clinic."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
     result = db.table("claims").select("*").eq("id", claim_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Claim not found")
+    require_own_clinic(result.data.get("clinic_id"), clinic_id, "Claim not found")
     return result.data
 
 
 @router.post("/{claim_id}/submit")
-async def submit_claim(claim_id: str):
+async def submit_claim(
+    claim_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
     """
     Submit a claim for processing.
     Runs Claude AI review first to flag any issues before submission.
     """
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
     result = db.table("claims").select("*").eq("id", claim_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Claim not found")
+    require_own_clinic(result.data.get("clinic_id"), clinic_id, "Claim not found")
 
     claim = result.data
     if claim["status"] not in ("draft", "resubmit"):
@@ -154,12 +174,18 @@ async def submit_claim(claim_id: str):
 
 
 @router.post("/{claim_id}/status")
-async def update_claim_status(claim_id: str, payload: UpdateStatusRequest):
-    """Update claim status (used when insurer responds)."""
+async def update_claim_status(
+    claim_id: str,
+    payload: UpdateStatusRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Update claim status (used when insurer responds). Caller must own the claim's clinic."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
     result = db.table("claims").select("clinic_id, status").eq("id", claim_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Claim not found")
+    require_own_clinic(result.data.get("clinic_id"), clinic_id, "Claim not found")
 
     valid = {"approved", "rejected", "resubmit", "under_review"}
     if payload.status not in valid:

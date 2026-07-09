@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Header
 from typing import Annotated
 
 from services.db import get_db
+from services.auth import resolve_clinic
 
 router = APIRouter()
 
@@ -63,8 +64,7 @@ def get_my_clinic(
     Authenticated endpoint — returns the current user's clinic info
     including slug (used to build the shareable booking URL).
     """
-    from routers.billing import _resolve_clinic
-    clinic_id, clinic = _resolve_clinic(authorization)
+    clinic_id, clinic = resolve_clinic(authorization)
 
     return {
         "clinic_id": clinic_id,

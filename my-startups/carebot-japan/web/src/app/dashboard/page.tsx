@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { API_URL, DEMO_CLINIC_ID, supabase } from "@/lib/supabase";
+import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Stats {
@@ -61,6 +61,10 @@ export default function DashboardOverviewPage() {
 
   useEffect(() => {
     async function load() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setLoading(false); return; }
+      const authHeader = { Authorization: `Bearer ${session.access_token}` };
+
       const now = new Date();
       const todayStr = now.toISOString().slice(0, 10);
       const weekStart = new Date(now);
@@ -68,8 +72,8 @@ export default function DashboardOverviewPage() {
       const weekStr = weekStart.toISOString().slice(0, 10);
 
       const [apptRes, queueRes] = await Promise.all([
-        fetch(`${API_URL}/appointments/${DEMO_CLINIC_ID}`).then((r) => r.ok ? r.json() : []).catch(() => []),
-        fetch(`${API_URL}/queue/${DEMO_CLINIC_ID}?status=pending`).then((r) => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_URL}/appointments/`, { headers: authHeader }).then((r) => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_URL}/queue/?status=pending`, { headers: authHeader }).then((r) => r.ok ? r.json() : []).catch(() => []),
       ]);
 
       const allAppts: RecentAppointment[] = Array.isArray(apptRes) ? apptRes : [];

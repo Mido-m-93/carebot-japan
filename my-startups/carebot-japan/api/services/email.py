@@ -3,6 +3,7 @@
 Transactional email via Resend.
 Sends appointment confirmation to patients after staff confirms from Review Queue.
 """
+import html as _html
 import os
 import resend
 
@@ -38,30 +39,36 @@ def send_appointment_confirmation(
 
     from_address = os.getenv("EMAIL_FROM", "onboarding@resend.dev")
 
+    # Escape before interpolating into HTML — patient_name, visit_reason, and
+    # clinic_name are all patient/AI-extracted or user-submitted text, not
+    # trusted markup.
+    safe_patient_name = _html.escape(patient_name) if patient_name else patient_name
+    safe_clinic_name = _html.escape(clinic_name) if clinic_name else clinic_name
+
     date_str = preferred_date or "—"
     time_str = preferred_time or "—"
-    reason_str = visit_reason or "—"
+    reason_str = _html.escape(visit_reason) if visit_reason else "—"
 
     is_ja = lang == "ja"
 
     if is_ja:
-        subject_line = f"【予約確定】{clinic_name}"
+        subject_line = f"【予約確定】{clinic_name}"  # email Subject header, not HTML — use raw text
         header_sub = "予約確定のお知らせ"
-        greeting = f"{patient_name} 様"
+        greeting = f"{safe_patient_name} 様"
         intro = "ご予約が確定しました。以下の内容をご確認ください。"
         labels = ["診療機関", "ご希望日", "ご希望時間", "来院理由", "初診 / 再診"]
         visit_type = "初診" if is_first_visit else ("再診" if is_first_visit is False else "—")
         closing = "ご不明な点がございましたら、クリニックまでお問い合わせください。"
     else:
-        subject_line = f"Appointment Confirmed — {clinic_name}"
+        subject_line = f"Appointment Confirmed — {clinic_name}"  # email Subject header, not HTML
         header_sub = "Appointment Confirmed"
-        greeting = f"Dear {patient_name},"
+        greeting = f"Dear {safe_patient_name},"
         intro = "Your appointment has been confirmed. Please find the details below."
         labels = ["Clinic", "Date", "Time", "Reason", "Visit type"]
         visit_type = "First visit" if is_first_visit else ("Return visit" if is_first_visit is False else "—")
         closing = "If you have any questions, please contact the clinic directly."
 
-    values = [clinic_name, date_str, time_str, reason_str, visit_type]
+    values = [safe_clinic_name, date_str, time_str, reason_str, visit_type]
     rows = "".join(
         f"<tr><td style='padding:6px 0;font-size:13px;color:#6b7280;width:130px'>{l}</td>"
         f"<td style='padding:6px 0;font-size:13px;color:#111827;font-weight:500'>{v}</td></tr>"
@@ -78,7 +85,7 @@ def send_appointment_confirmation(
       <table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
 
         <tr><td style="background:#0f766e;padding:24px 32px">
-          <p style="margin:0;color:#fff;font-size:18px;font-weight:600">{clinic_name}</p>
+          <p style="margin:0;color:#fff;font-size:18px;font-weight:600">{safe_clinic_name}</p>
           <p style="margin:4px 0 0;color:#99f6e4;font-size:13px">{header_sub}</p>
         </td></tr>
 

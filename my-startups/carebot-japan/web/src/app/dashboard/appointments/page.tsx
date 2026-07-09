@@ -1,7 +1,7 @@
 ﻿// apps/web/src/app/dashboard/appointments/page.tsx
 "use client";
 import { useEffect, useState } from "react";
-import { API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
+import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Appointment {
@@ -33,7 +33,12 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await fetch(`${API_URL}/appointments/${DEMO_CLINIC_ID}`)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setLoading(false); return; }
+
+      const data = await fetch(`${API_URL}/appointments/`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
         .then((r) => r.ok ? r.json() : [])
         .catch(() => []);
       setAppointments((Array.isArray(data) ? data as Appointment[] : []).slice(0, 50));

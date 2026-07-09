@@ -11,17 +11,16 @@ Required environment variables:
     STRIPE_WEBHOOK_SECRET    — Stripe webhook signing secret (whsec_...)
     STRIPE_PRICE_ID          — Stripe Price ID for the $49/month plan (price_...)
     NEXT_PUBLIC_APP_URL      — frontend URL used for success/cancel redirects
-    SUPABASE_JWT_SECRET      — Supabase JWT secret (used to validate Bearer tokens)
 """
 
 import os
 import stripe
-import jwt as pyjwt
 
 from fastapi import APIRouter, Request, HTTPException, Header
 from typing import Annotated
 
 from services.db import get_db
+from services.auth import resolve_clinic
 
 router = APIRouter()
 
@@ -32,71 +31,6 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 _WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 _PRICE_ID       = os.getenv("STRIPE_PRICE_ID", "")
 _APP_URL        = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
-
-
-# ── JWT helpers ───────────────────────────────────────────────────────────────
-
-def _decode_jwt(token: str) -> dict:
-    """
-    Validate a Supabase-issued JWT and return its payload.
-    Raises HTTP 401 on any validation failure.
-    """
-    secret = os.getenv("SUPABASE_JWT_SECRET", "")
-    if not secret:
-        raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured")
-    try:
-        payload = pyjwt.decode(
-            token,
-            secret,
-            algorithms=["HS256"],
-            options={"require": ["sub", "exp"]},
-        )
-        return payload
-    except pyjwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except pyjwt.InvalidTokenError as exc:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
-
-
-def _get_clinic_id_for_user(user_id: str) -> str:
-    """
-    Look up the clinic that this Supabase user belongs to.
-    Expects a `clinic_users` table with (clinic_id, user_id) columns.
-    Raises HTTP 404 if no mapping exists.
-    """
-    db = get_db()
-    row = (
-        db.table("clinic_users")
-        .select("clinic_id")
-        .eq("user_id", user_id)
-        .single()
-        .execute()
-    )
-    if not row.data:
-        raise HTTPException(status_code=404, detail="No clinic found for this user")
-    return row.data["clinic_id"]
-
-
-def _resolve_clinic(authorization: str | None) -> tuple[str, dict]:
-    """
-    Parse the Bearer token from the Authorization header, validate it,
-    and return (clinic_id, clinic_row).
-    """
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
-
-    token   = authorization.removeprefix("Bearer ").strip()
-    payload = _decode_jwt(token)
-    user_id = payload["sub"]
-
-    clinic_id = _get_clinic_id_for_user(user_id)
-
-    db  = get_db()
-    row = db.table("clinics").select("*").eq("id", clinic_id).single().execute()
-    if not row.data:
-        raise HTTPException(status_code=404, detail="Clinic not found")
-
-    return clinic_id, row.data
 
 
 # ── POST /billing/create-checkout-session ─────────────────────────────────────
@@ -112,7 +46,7 @@ def create_checkout_session(
     2. Creates (or reuses) a Stripe Customer tied to this clinic.
     3. Returns a Checkout session URL the frontend redirects to.
     """
-    clinic_id, clinic = _resolve_clinic(authorization)
+    clinic_id, clinic = resolve_clinic(authorization)
 
     if not stripe.api_key:
         raise HTTPException(status_code=500, detail="STRIPE_SECRET_KEY not configured")
@@ -294,7 +228,7 @@ def create_portal_session(
 
     Returns a one-time URL that expires after a few minutes.
     """
-    clinic_id, clinic = _resolve_clinic(authorization)
+    clinic_id, clinic = resolve_clinic(authorization)
 
     customer_id: str | None = clinic.get("stripe_customer_id")
     if not customer_id:
@@ -328,7 +262,7 @@ def get_subscription(
     stripe_customer_id   — Stripe customer ID (or None)
     stripe_subscription_id — Stripe subscription ID (or None)
     """
-    clinic_id, clinic = _resolve_clinic(authorization)
+    clinic_id, clinic = resolve_clinic(authorization)
 
     return {
         "clinic_id":              clinic_id,

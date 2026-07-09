@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from "react";
-import { API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
+import { API_URL, supabase } from "@/lib/supabase";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Claim {
   id: string;
@@ -32,16 +33,17 @@ const STATUS_STYLES: Record<string, string> = {
   resubmit: "bg-orange-50 text-orange-700",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "下書き",
-  submitted: "申請済",
-  under_review: "審査中",
-  approved: "承認",
-  rejected: "却下",
-  resubmit: "再申請",
-};
+const STATUS_LABEL_KEYS = {
+  draft: "claims_status_draft",
+  submitted: "claims_status_submitted",
+  under_review: "claims_status_under_review",
+  approved: "claims_status_approved",
+  rejected: "claims_status_rejected",
+  resubmit: "claims_status_resubmit",
+} as const;
 
 export default function ClaimsPage() {
+  const { t, lang } = useLanguage();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -62,10 +64,26 @@ export default function ClaimsPage() {
   });
   const [creating, setCreating] = useState(false);
 
+  const formFields = [
+    { key: "patient_name", label: t.claims_field_patient_name },
+    { key: "insurer_name", label: t.claims_field_insurer_name },
+    { key: "policy_number", label: t.claims_field_policy_number },
+    { key: "amount_claimed", label: t.claims_field_amount, type: "number" },
+    { key: "procedure_codes", label: t.claims_field_procedure_codes },
+    { key: "diagnosis_codes", label: t.claims_field_diagnosis_codes },
+  ];
+
+  async function authHeader() {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session ? { Authorization: `Bearer ${session.access_token}` } : null;
+  }
+
   async function loadClaims() {
     setLoadError(null);
     try {
-      const res = await fetch(`${API_URL}/claims/${DEMO_CLINIC_ID}`);
+      const headers = await authHeader();
+      if (!headers) { setLoading(false); return; }
+      const res = await fetch(`${API_URL}/claims/`, { headers });
       if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
       const data = await res.json();
       setClaims(Array.isArray(data) ? data : []);
@@ -82,11 +100,12 @@ export default function ClaimsPage() {
     setCreating(true);
     setCreateError(null);
     try {
+      const headers = await authHeader();
+      if (!headers) { setCreateError("Not signed in"); setCreating(false); return; }
       const res = await fetch(`${API_URL}/claims/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify({
-          clinic_id: DEMO_CLINIC_ID,
           patient_name: form.patient_name || null,
           insurer_name: form.insurer_name || null,
           policy_number: form.policy_number || null,
@@ -110,7 +129,9 @@ export default function ClaimsPage() {
   async function submitClaim(claimId: string) {
     setSubmitting(claimId);
     try {
-      const res = await fetch(`${API_URL}/claims/${claimId}/submit`, { method: "POST" });
+      const headers = await authHeader();
+      if (!headers) return;
+      const res = await fetch(`${API_URL}/claims/${claimId}/submit`, { method: "POST", headers });
       const data = await res.json();
       if (data.ai_review) {
         setAiReview(prev => ({ ...prev, [claimId]: data.ai_review }));
@@ -128,7 +149,7 @@ export default function ClaimsPage() {
 
   function formatDate(iso: string | null) {
     if (!iso) return "—";
-    return new Date(iso).toLocaleString("ja-JP", {
+    return new Date(iso).toLocaleString(lang === "ja" ? "ja-JP" : "en-US", {
       month: "short", day: "numeric",
       hour: "2-digit", minute: "2-digit",
       timeZone: "Asia/Tokyo",
@@ -139,30 +160,23 @@ export default function ClaimsPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">保険請求</h1>
-          <p className="text-sm text-gray-500 mt-1">Claims Management — AI-assisted insurance workflow</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t.claims_title}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t.claims_subtitle}</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
         >
-          {showForm ? "キャンセル" : "+ 新規請求"}
+          {showForm ? t.claims_cancel : t.claims_new}
         </button>
       </div>
 
       {/* New claim form */}
       {showForm && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-medium text-gray-800 mb-4">新規保険請求</h2>
+          <h2 className="text-sm font-medium text-gray-800 mb-4">{t.claims_new_title}</h2>
           <div className="grid grid-cols-2 gap-4">
-            {[
-              { key: "patient_name", label: "患者名" },
-              { key: "insurer_name", label: "保険者名" },
-              { key: "policy_number", label: "保険証番号" },
-              { key: "amount_claimed", label: "請求金額（円）", type: "number" },
-              { key: "procedure_codes", label: "診療行為コード（カンマ区切り）" },
-              { key: "diagnosis_codes", label: "傷病名コード（カンマ区切り）" },
-            ].map(({ key, label, type }) => (
+            {formFields.map(({ key, label, type }) => (
               <div key={key}>
                 <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
                 <input
@@ -174,7 +188,7 @@ export default function ClaimsPage() {
               </div>
             ))}
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">備考</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t.claims_field_notes}</label>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
@@ -185,12 +199,10 @@ export default function ClaimsPage() {
           </div>
           {createError && (
             <div className="mt-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-              <p className="text-xs font-medium text-red-700 mb-1">エラーが発生しました</p>
+              <p className="text-xs font-medium text-red-700 mb-1">{t.claims_error_generic}</p>
               <p className="text-xs text-red-500 font-mono">{createError}</p>
               {createError.includes("does not exist") || createError.includes("42P01") ? (
-                <p className="text-xs text-red-500 mt-1">
-                  SupabaseでSchema_additions.sqlを実行してください。
-                </p>
+                <p className="text-xs text-red-500 mt-1">{t.claims_error_schema_hint}</p>
               ) : null}
             </div>
           )}
@@ -200,7 +212,7 @@ export default function ClaimsPage() {
               disabled={creating}
               className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors"
             >
-              {creating ? "保存中..." : "下書きとして保存"}
+              {creating ? t.claims_saving : t.claims_save_draft}
             </button>
           </div>
         </div>
@@ -209,26 +221,25 @@ export default function ClaimsPage() {
       {/* Claims list */}
       {loadError && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
-          <p className="text-sm font-medium text-red-700">APIエラー — テーブルが存在しない可能性があります</p>
+          <p className="text-sm font-medium text-red-700">{t.claims_error_api}</p>
           <p className="text-xs text-red-500 mt-1 font-mono">{loadError}</p>
-          <p className="text-xs text-red-500 mt-2">
-            Supabase SQL Editorで <strong>schema_additions.sql</strong> を実行してください。
-          </p>
+          <p className="text-xs text-red-500 mt-2">{t.claims_error_schema_hint2}</p>
         </div>
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-400">読み込み中...</p>
+        <p className="text-sm text-gray-400">{t.loading}</p>
       ) : claims.length === 0 && !loadError ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-sm text-gray-400">請求がありません</p>
-          <p className="text-xs text-gray-300 mt-1">「+ 新規請求」から作成してください</p>
+          <p className="text-sm text-gray-400">{t.claims_empty}</p>
+          <p className="text-xs text-gray-300 mt-1">{t.claims_empty_sub}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {claims.map((claim) => {
             const review = aiReview[claim.id] ?? (claim.ai_flags as unknown as AIReview | null);
             const flagCount = review?.flags?.length ?? 0;
+            const statusKey = STATUS_LABEL_KEYS[claim.status as keyof typeof STATUS_LABEL_KEYS];
 
             return (
               <div key={claim.id} className="bg-white rounded-xl border border-gray-200 p-5">
@@ -236,26 +247,26 @@ export default function ClaimsPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[claim.status] ?? "bg-gray-100 text-gray-600"}`}>
-                        {STATUS_LABELS[claim.status] ?? claim.status}
+                        {statusKey ? t[statusKey] : claim.status}
                       </span>
                       {flagCount > 0 && (
                         <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
-                          ⚠ AI警告 {flagCount}件
+                          {t.claims_ai_warning(flagCount)}
                         </span>
                       )}
                     </div>
 
                     <div className="grid grid-cols-3 gap-3 text-sm">
                       <div>
-                        <p className="text-xs text-gray-400">患者名</p>
+                        <p className="text-xs text-gray-400">{t.claims_col_patient}</p>
                         <p className="text-gray-800 font-medium">{claim.patient_name ?? "—"}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-400">保険者</p>
+                        <p className="text-xs text-gray-400">{t.claims_col_insurer}</p>
                         <p className="text-gray-800">{claim.insurer_name ?? "—"}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-400">請求額</p>
+                        <p className="text-xs text-gray-400">{t.claims_col_amount}</p>
                         <p className="text-gray-800">{formatYen(claim.amount_claimed)}</p>
                       </div>
                     </div>
@@ -263,7 +274,7 @@ export default function ClaimsPage() {
                     {/* AI review flags */}
                     {review?.flags && review.flags.length > 0 && (
                       <div className="mt-3 bg-amber-50 rounded-lg p-3">
-                        <p className="text-xs font-medium text-amber-700 mb-1">AI審査結果</p>
+                        <p className="text-xs font-medium text-amber-700 mb-1">{t.claims_ai_review_title}</p>
                         {review.flags.map((f, i) => (
                           <p key={i} className="text-xs text-amber-600">• {f}</p>
                         ))}
@@ -272,7 +283,7 @@ export default function ClaimsPage() {
                         )}
                         {review.estimated_approval_rate !== undefined && (
                           <p className="text-xs text-amber-700 mt-1 font-medium">
-                            承認予測率: {Math.round(review.estimated_approval_rate * 100)}%
+                            {t.claims_approval_rate(Math.round(review.estimated_approval_rate * 100))}
                           </p>
                         )}
                       </div>
@@ -282,11 +293,11 @@ export default function ClaimsPage() {
                   <div className="text-right flex-shrink-0">
                     <p className="text-xs text-gray-400 mb-1">{formatDate(claim.created_at)}</p>
                     {claim.submitted_at && (
-                      <p className="text-xs text-gray-400">申請: {formatDate(claim.submitted_at)}</p>
+                      <p className="text-xs text-gray-400">{t.claims_submitted_label}: {formatDate(claim.submitted_at)}</p>
                     )}
                     {claim.amount_approved !== null && (
                       <p className="text-xs text-teal-600 font-medium mt-1">
-                        承認額: {formatYen(claim.amount_approved)}
+                        {t.claims_approved_label}: {formatYen(claim.amount_approved)}
                       </p>
                     )}
                     {claim.status === "draft" && (
@@ -295,7 +306,7 @@ export default function ClaimsPage() {
                         disabled={submitting === claim.id}
                         className="mt-2 px-3 py-1.5 text-xs bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors font-medium"
                       >
-                        {submitting === claim.id ? "申請中..." : "AI審査して申請"}
+                        {submitting === claim.id ? t.claims_submitting : t.claims_submit_ai}
                       </button>
                     )}
                   </div>

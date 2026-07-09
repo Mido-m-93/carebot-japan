@@ -1,18 +1,24 @@
 # apps/api/routers/queue.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
+from typing import Annotated
 from services.db import get_db
 from services.scheduling import process_message
 from services.email import send_appointment_confirmation
 from services.calendar import push_appointment_to_calendar
+from services.auth import resolve_clinic, require_own_clinic
 from routers.appointments import get_available_slots
 
 router = APIRouter()
 
 
-@router.get("/{clinic_id}")
-def list_queue(clinic_id: str, status: str = "pending"):
-    """List review queue items for a clinic."""
+@router.get("/")
+def list_queue(
+    authorization: Annotated[str | None, Header()] = None,
+    status: str = "pending",
+):
+    """List review queue items for the caller's clinic."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
     return (
         db.table("review_queue")
@@ -32,12 +38,20 @@ class ResolveRequest(BaseModel):
 
 
 @router.post("/{item_id}/resolve")
-def resolve_queue_item(item_id: str, body: ResolveRequest):
+def resolve_queue_item(
+    item_id: str,
+    body: ResolveRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
     """
     Human resolves a review queue item.
     Optionally creates the appointment from the corrected data.
     """
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
+
+    existing = db.table("review_queue").select("clinic_id").eq("id", item_id).maybe_single().execute()
+    require_own_clinic(existing.data["clinic_id"] if existing.data else None, clinic_id, "Queue item not found")
 
     # Mark resolved
     db.table("review_queue").update({
@@ -52,9 +66,11 @@ def resolve_queue_item(item_id: str, body: ResolveRequest):
         r = body.resolution
 
         # ── Availability check ────────────────────────────────
+        # clinic_id is the caller's own (verified) clinic — never the client-supplied
+        # resolution.clinic_id, which would let a caller book into another clinic.
         preferred_date = r.get("preferred_date")
         preferred_time = r.get("preferred_time")
-        clinic_id_r    = r.get("clinic_id")
+        clinic_id_r    = clinic_id
 
         if preferred_date and preferred_time and clinic_id_r:
             availability = get_available_slots(db, clinic_id_r, preferred_date)
@@ -104,7 +120,7 @@ def resolve_queue_item(item_id: str, body: ResolveRequest):
     calendar_event_id = None
     patient_email = r.get("patient_email") if body.create_appointment else None
     if body.create_appointment and appointment_id:
-        clinic_row = db.table("clinics").select("name, name_jp").eq("id", r.get("clinic_id")).single().execute()
+        clinic_row = db.table("clinics").select("name, name_jp").eq("id", clinic_id).single().execute()
         clinic_name = (clinic_row.data.get("name_jp") or clinic_row.data.get("name")) if clinic_row.data else "クリニック"
 
         if patient_email:
@@ -138,8 +154,16 @@ def resolve_queue_item(item_id: str, body: ResolveRequest):
 
 
 @router.post("/{item_id}/dismiss")
-def dismiss_queue_item(item_id: str):
+def dismiss_queue_item(
+    item_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
     """Dismiss a review queue item without creating an appointment."""
+    clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
+
+    existing = db.table("review_queue").select("clinic_id").eq("id", item_id).maybe_single().execute()
+    require_own_clinic(existing.data["clinic_id"] if existing.data else None, clinic_id, "Queue item not found")
+
     db.table("review_queue").update({"status": "dismissed"}).eq("id", item_id).execute()
     return {"status": "dismissed", "item_id": item_id}
