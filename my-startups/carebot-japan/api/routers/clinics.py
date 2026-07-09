@@ -29,8 +29,13 @@ def unique_slug(db, base: str) -> str:
     candidate = base
     n = 2
     while True:
-        row = db.table("clinics").select("id").eq("slug", candidate).maybe_single().execute()
-        if not row.data:
+        # Avoid .maybe_single() here — it raises rather than returning
+        # data=None on some postgrest-py/PostgREST version combinations
+        # when zero rows match. A plain list query + length check sidesteps
+        # that entirely and matches the pattern used everywhere else in
+        # this codebase.
+        rows = db.table("clinics").select("id").eq("slug", candidate).limit(1).execute()
+        if not rows.data:
             return candidate
         candidate = f"{base}-{n}"
         n += 1
@@ -45,12 +50,13 @@ def get_clinic_by_slug(slug: str):
     a slug to a clinic ID and display name.
     """
     db = get_db()
-    row = db.table("clinics").select("id, name").eq("slug", slug).maybe_single().execute()
-    if not row.data:
+    rows = db.table("clinics").select("id, name").eq("slug", slug).limit(1).execute()
+    if not rows.data:
         raise HTTPException(status_code=404, detail="Clinic not found")
+    row = rows.data[0]
     return {
-        "clinic_id": row.data["id"],
-        "name": row.data["name"],
+        "clinic_id": row["id"],
+        "name": row["name"],
     }
 
 

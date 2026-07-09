@@ -50,8 +50,8 @@ def resolve_queue_item(
     clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
 
-    existing = db.table("review_queue").select("clinic_id").eq("id", item_id).maybe_single().execute()
-    require_own_clinic(existing.data["clinic_id"] if existing.data else None, clinic_id, "Queue item not found")
+    existing = db.table("review_queue").select("clinic_id").eq("id", item_id).limit(1).execute()
+    require_own_clinic(existing.data[0]["clinic_id"] if existing.data else None, clinic_id, "Queue item not found")
 
     # Mark resolved
     db.table("review_queue").update({
@@ -120,8 +120,9 @@ def resolve_queue_item(
     calendar_event_id = None
     patient_email = r.get("patient_email") if body.create_appointment else None
     if body.create_appointment and appointment_id:
-        clinic_row = db.table("clinics").select("name, name_jp").eq("id", clinic_id).single().execute()
-        clinic_name = (clinic_row.data.get("name_jp") or clinic_row.data.get("name")) if clinic_row.data else "クリニック"
+        clinic_rows = db.table("clinics").select("name, name_jp").eq("id", clinic_id).limit(1).execute()
+        clinic_row_data = clinic_rows.data[0] if clinic_rows.data else None
+        clinic_name = (clinic_row_data.get("name_jp") or clinic_row_data.get("name")) if clinic_row_data else "クリニック"
 
         if patient_email:
             email_id = send_appointment_confirmation(
@@ -162,8 +163,8 @@ def dismiss_queue_item(
     clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
 
-    existing = db.table("review_queue").select("clinic_id").eq("id", item_id).maybe_single().execute()
-    require_own_clinic(existing.data["clinic_id"] if existing.data else None, clinic_id, "Queue item not found")
+    existing = db.table("review_queue").select("clinic_id").eq("id", item_id).limit(1).execute()
+    require_own_clinic(existing.data[0]["clinic_id"] if existing.data else None, clinic_id, "Queue item not found")
 
     db.table("review_queue").update({"status": "dismissed"}).eq("id", item_id).execute()
     return {"status": "dismissed", "item_id": item_id}

@@ -42,17 +42,19 @@ def process_message(
     today_str = now_jst.strftime("%Y-%m-%d")
 
     # ── Fetch clinic info ─────────────────────────────────────
-    clinic_row = (
+    # .limit(1), not .single() — a nonexistent clinic_id must return the
+    # "not found" error below, not raise an unhandled exception.
+    clinic_rows = (
         db.table("clinics")
         .select("id, name, name_jp, active")
         .eq("id", clinic_id)
-        .single()
+        .limit(1)
         .execute()
     )
-    if not clinic_row.data or not clinic_row.data["active"]:
+    if not clinic_rows.data or not clinic_rows.data[0]["active"]:
         return {"status": "error", "reason": "clinic_not_found_or_inactive"}
 
-    clinic = clinic_row.data
+    clinic = clinic_rows.data[0]
     clinic_name_jp = clinic.get("name_jp") or clinic["name"]
 
     # ── Step 1: Intent classification ─────────────────────────

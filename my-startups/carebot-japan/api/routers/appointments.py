@@ -79,8 +79,9 @@ def book_appointment(body: BookingRequest):
     result = db.table("appointments").insert(appt).execute()
     appointment_id = result.data[0]["id"] if result.data else None
 
-    clinic_row = db.table("clinics").select("name, name_jp").eq("id", body.clinic_id).single().execute()
-    clinic_name = (clinic_row.data.get("name_jp") or clinic_row.data.get("name")) if clinic_row.data else "クリニック"
+    clinic_rows = db.table("clinics").select("name, name_jp").eq("id", body.clinic_id).limit(1).execute()
+    clinic_row_data = clinic_rows.data[0] if clinic_rows.data else None
+    clinic_name = (clinic_row_data.get("name_jp") or clinic_row_data.get("name")) if clinic_row_data else "クリニック"
 
     # Send confirmation email immediately
     email_sent = False
@@ -221,8 +222,8 @@ def cancel_appointment(
     clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
 
-    existing = db.table("appointments").select("clinic_id").eq("id", appointment_id).maybe_single().execute()
-    require_own_clinic(existing.data["clinic_id"] if existing.data else None, clinic_id, "Appointment not found")
+    existing = db.table("appointments").select("clinic_id").eq("id", appointment_id).limit(1).execute()
+    require_own_clinic(existing.data[0]["clinic_id"] if existing.data else None, clinic_id, "Appointment not found")
 
     db.table("appointments").update({"status": "cancelled"}).eq("id", appointment_id).execute()
     return {"status": "cancelled", "appointment_id": appointment_id}

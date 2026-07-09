@@ -9,4 +9,7 @@ COPY . .
 
 RUN python -c "from routers import billing, clinics; print('imports OK')"
 
+RUN useradd --create-home --shell /bin/false appuser && chown -R appuser:appuser /app
+USER appuser
+
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]

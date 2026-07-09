@@ -107,11 +107,12 @@ async def get_claim(
     """Get full claim details. Caller must own the claim's clinic."""
     clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
-    result = db.table("claims").select("*").eq("id", claim_id).single().execute()
+    result = db.table("claims").select("*").eq("id", claim_id).limit(1).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Claim not found")
-    require_own_clinic(result.data.get("clinic_id"), clinic_id, "Claim not found")
-    return result.data
+    claim_row = result.data[0]
+    require_own_clinic(claim_row.get("clinic_id"), clinic_id, "Claim not found")
+    return claim_row
 
 
 @router.post("/{claim_id}/submit")
@@ -125,12 +126,12 @@ async def submit_claim(
     """
     clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
-    result = db.table("claims").select("*").eq("id", claim_id).single().execute()
+    result = db.table("claims").select("*").eq("id", claim_id).limit(1).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Claim not found")
-    require_own_clinic(result.data.get("clinic_id"), clinic_id, "Claim not found")
+    claim = result.data[0]
+    require_own_clinic(claim.get("clinic_id"), clinic_id, "Claim not found")
 
-    claim = result.data
     if claim["status"] not in ("draft", "resubmit"):
         raise HTTPException(status_code=400, detail=f"Cannot submit claim with status '{claim['status']}'")
 
@@ -182,10 +183,10 @@ async def update_claim_status(
     """Update claim status (used when insurer responds). Caller must own the claim's clinic."""
     clinic_id, _clinic = resolve_clinic(authorization)
     db = get_db()
-    result = db.table("claims").select("clinic_id, status").eq("id", claim_id).single().execute()
+    result = db.table("claims").select("clinic_id, status").eq("id", claim_id).limit(1).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Claim not found")
-    require_own_clinic(result.data.get("clinic_id"), clinic_id, "Claim not found")
+    require_own_clinic(result.data[0].get("clinic_id"), clinic_id, "Claim not found")
 
     valid = {"approved", "rejected", "resubmit", "under_review"}
     if payload.status not in valid:

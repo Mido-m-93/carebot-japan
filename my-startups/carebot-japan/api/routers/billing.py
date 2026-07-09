@@ -152,17 +152,21 @@ def _handle_checkout_completed(db, session: dict):
     clinic_id       = (session.get("metadata") or {}).get("clinic_id")
 
     if not clinic_id:
-        # Fall back to looking up by customer ID if metadata is missing
-        row = (
+        # Fall back to looking up by customer ID if metadata is missing.
+        # .limit(1), not .single()/.maybe_single() — on this postgrest
+        # version, those raise instead of returning data=None for zero
+        # rows, which would crash this webhook handler on an unknown
+        # customer instead of just skipping it.
+        rows = (
             db.table("clinics")
             .select("id")
             .eq("stripe_customer_id", customer_id)
-            .single()
+            .limit(1)
             .execute()
         )
-        if not row.data:
+        if not rows.data:
             return  # Unknown customer — nothing to update
-        clinic_id = row.data["id"]
+        clinic_id = rows.data[0]["id"]
 
     db.table("clinics").update({
         "stripe_customer_id":    customer_id,
@@ -181,25 +185,24 @@ def _handle_subscription_deleted(db, subscription: dict):
     customer_id     = subscription.get("customer")
 
     # Prefer lookup by subscription ID; fall back to customer ID
-    query = db.table("clinics").select("id").eq("stripe_subscription_id", subscription_id)
-    row   = query.single().execute()
+    rows = db.table("clinics").select("id").eq("stripe_subscription_id", subscription_id).limit(1).execute()
 
-    if not row.data and customer_id:
-        row = (
+    if not rows.data and customer_id:
+        rows = (
             db.table("clinics")
             .select("id")
             .eq("stripe_customer_id", customer_id)
-            .single()
+            .limit(1)
             .execute()
         )
 
-    if not row.data:
+    if not rows.data:
         return  # Nothing to update
 
     db.table("clinics").update({
         "tier":                "starter",
         "subscription_status": "cancelled",
-    }).eq("id", row.data["id"]).execute()
+    }).eq("id", rows.data[0]["id"]).execute()
 
 
 def _handle_payment_failed(db, invoice: dict):

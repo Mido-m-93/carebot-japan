@@ -16,16 +16,20 @@ def _get_clinic_id_for_user(user_id: str) -> str:
     Raises HTTP 404 if no mapping exists.
     """
     db = get_db()
-    row = (
+    # Avoid .single()/.maybe_single() — on this postgrest/PostgREST version
+    # combo, a zero-row result raises APIError instead of returning
+    # data=None, which would surface as an unhandled 500 instead of a
+    # clean 404. A plain list query + length check sidesteps that.
+    rows = (
         db.table("clinic_users")
         .select("clinic_id")
         .eq("user_id", user_id)
-        .single()
+        .limit(1)
         .execute()
     )
-    if not row.data:
+    if not rows.data:
         raise HTTPException(status_code=404, detail="No clinic found for this user")
-    return row.data["clinic_id"]
+    return rows.data[0]["clinic_id"]
 
 
 def resolve_clinic(authorization: str | None) -> tuple[str, dict]:
@@ -54,11 +58,11 @@ def resolve_clinic(authorization: str | None) -> tuple[str, dict]:
 
     clinic_id = _get_clinic_id_for_user(user.id)
 
-    row = db.table("clinics").select("*").eq("id", clinic_id).single().execute()
-    if not row.data:
+    rows = db.table("clinics").select("*").eq("id", clinic_id).limit(1).execute()
+    if not rows.data:
         raise HTTPException(status_code=404, detail="Clinic not found")
 
-    return clinic_id, row.data
+    return clinic_id, rows.data[0]
 
 
 def require_own_clinic(record_clinic_id: str | None, caller_clinic_id: str, not_found_detail: str = "Not found") -> None:
