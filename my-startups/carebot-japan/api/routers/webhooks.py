@@ -58,8 +58,9 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
                 clinic_name_jp="新宿デモクリニック",
             )
         else:
-            name = result.get("patient_name") or "お客様"
-            reply = f"{name}様、ご予約を承りました。日時の詳細はクリニックまでお問い合わせください。"
+            patient_name = result.get("patient_name")
+            greeting = f"{patient_name}様" if patient_name else "お客様"
+            reply = f"{greeting}、ご予約を承りました。日時の詳細はクリニックまでお問い合わせください。"
         if result.get("flagged_for_review"):
             reply += "\n\n※内容を確認の上、担当者よりご連絡する場合がございます。"
     elif status == "queued_for_review":
