@@ -16,7 +16,15 @@
 ALTER TABLE clinics
     ADD COLUMN IF NOT EXISTS stripe_customer_id     TEXT UNIQUE,
     ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT UNIQUE,
+    ADD COLUMN IF NOT EXISTS tier                   TEXT NOT NULL DEFAULT 'starter',
     ADD COLUMN IF NOT EXISTS subscription_status    TEXT NOT NULL DEFAULT 'inactive';
+
+ALTER TABLE clinics
+    DROP CONSTRAINT IF EXISTS clinics_tier_check;
+
+ALTER TABLE clinics
+    ADD CONSTRAINT clinics_tier_check
+    CHECK (tier IN ('starter', 'pro', 'enterprise'));
 
 -- Optional: add a check constraint so only valid values can be stored
 -- (comment out if you want to allow future statuses without a migration)
