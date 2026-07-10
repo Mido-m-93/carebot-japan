@@ -202,7 +202,7 @@ async def update_claim_status(
         update["amount_approved"] = payload.amount_approved
 
     db.table("claims").update(update).eq("id", claim_id).execute()
-    _log(db, result.data["clinic_id"], "claim_status_updated", claim_id, {"new_status": payload.status})
+    _log(db, result.data[0]["clinic_id"], "claim_status_updated", claim_id, {"new_status": payload.status})
 
     return {"status": payload.status, "claim_id": claim_id}
 
