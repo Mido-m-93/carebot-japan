@@ -191,10 +191,10 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 shadow-sm" />
             <span className="font-semibold text-teal-800">CareBot Japan</span>
-          </div>
+          </Link>
           <div className="flex items-center gap-3">
             <button
               onClick={toggle}
