@@ -21,6 +21,7 @@ from datetime import datetime, timezone, timedelta
 from services.ai import classify_intent, extract_appointment, generate_confirmation
 from services.sms import send_sms
 from services.db import get_db
+from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
 
 # Thresholds for automatic processing vs human review
 INTENT_CONFIDENCE_THRESHOLD = 0.75
@@ -46,7 +47,7 @@ def process_message(
     # "not found" error below, not raise an unhandled exception.
     clinic_rows = (
         db.table("clinics")
-        .select("id, name, name_jp, active")
+        .select("id, name, name_jp, active, tier")
         .eq("id", clinic_id)
         .limit(1)
         .execute()
@@ -103,7 +104,21 @@ def process_message(
         or overall_confidence < EXTRACTION_CONFIDENCE_THRESHOLD
     )
 
-    # ── Step 3: Write appointment to Supabase (always) ────────
+    # ── Step 3: Write appointment to Supabase (always, unless plan limit hit) ──
+    if quota_exceeded(clinic):
+        _push_review_queue(
+            db, clinic_id, source, raw_message,
+            intent, intent_confidence,
+            extracted_data=extraction,
+            field_confidences=field_confidences,
+        )
+        return {
+            "status": "plan_limit_reached",
+            "intent": intent,
+            "confidence": overall_confidence,
+            "reason": f"Starter plan limit of {STARTER_MONTHLY_LIMIT} appointments/month reached — flagged for manual booking or upgrade.",
+        }
+
     appointment_id = str(uuid.uuid4())
     scheduled_at = None
     if extraction.get("preferred_date") and extraction.get("preferred_time"):

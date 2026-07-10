@@ -6,6 +6,7 @@ from services.db import get_db
 from services.email import send_appointment_confirmation
 from services.calendar import push_appointment_to_calendar
 from services.auth import resolve_clinic, require_own_clinic
+from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
 from datetime import datetime, date, time, timedelta, timezone
 
 router = APIRouter()
@@ -27,6 +28,19 @@ class BookingRequest(BaseModel):
 def book_appointment(body: BookingRequest):
     """Patient-facing booking form — auto-confirms directly, no review queue needed."""
     db = get_db()
+
+    clinic_rows = db.table("clinics").select("name, name_jp, tier").eq("id", body.clinic_id).limit(1).execute()
+    clinic_row_data = clinic_rows.data[0] if clinic_rows.data else None
+    clinic_name = (clinic_row_data.get("name_jp") or clinic_row_data.get("name")) if clinic_row_data else "クリニック"
+
+    if clinic_row_data and quota_exceeded({"id": body.clinic_id, "tier": clinic_row_data.get("tier")}):
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "error": "plan_limit_reached",
+                "message": f"This clinic has reached its Starter plan limit of {STARTER_MONTHLY_LIMIT} appointments this month. Please contact the clinic directly to book.",
+            },
+        )
 
     # Check availability before booking
     if body.preferred_date and body.preferred_time:
@@ -78,10 +92,6 @@ def book_appointment(body: BookingRequest):
     }
     result = db.table("appointments").insert(appt).execute()
     appointment_id = result.data[0]["id"] if result.data else None
-
-    clinic_rows = db.table("clinics").select("name, name_jp").eq("id", body.clinic_id).limit(1).execute()
-    clinic_row_data = clinic_rows.data[0] if clinic_rows.data else None
-    clinic_name = (clinic_row_data.get("name_jp") or clinic_row_data.get("name")) if clinic_row_data else "クリニック"
 
     # Send confirmation email immediately
     email_sent = False
