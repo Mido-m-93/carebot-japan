@@ -3,12 +3,16 @@ import type { LLMResult } from './types'
 
 const mockCallAnthropic = vi.fn<(req: unknown) => Promise<LLMResult>>()
 const mockCallOpenRouter = vi.fn<(req: unknown) => Promise<LLMResult>>()
+const mockCallGroq = vi.fn<(req: unknown) => Promise<LLMResult>>()
 
 vi.mock('./anthropicProvider', () => ({
   callAnthropic: (req: unknown) => mockCallAnthropic(req),
 }))
 vi.mock('./openrouterProvider', () => ({
   callOpenRouter: (req: unknown) => mockCallOpenRouter(req),
+}))
+vi.mock('./groqProvider', () => ({
+  callGroq: (req: unknown) => mockCallGroq(req),
 }))
 
 import { callLLM } from './index'
@@ -35,11 +39,20 @@ const OPENROUTER_RESULT: LLMResult = {
   provider: 'openrouter',
 }
 
+const GROQ_RESULT: LLMResult = {
+  text: 'groq response',
+  tokensIn: 100,
+  tokensOut: 50,
+  costUsd: 0,
+  provider: 'groq',
+}
+
 describe('callLLM — provider dispatch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCallAnthropic.mockResolvedValue(ANTHROPIC_RESULT)
     mockCallOpenRouter.mockResolvedValue(OPENROUTER_RESULT)
+    mockCallGroq.mockResolvedValue(GROQ_RESULT)
   })
 
   it('claude-* モデルは Anthropic へルーティングされる', async () => {
@@ -71,6 +84,16 @@ describe('callLLM — provider dispatch', () => {
     await callLLM({ ...BASE_REQUEST, model: 'moonshotai/kimi-k2.6' })
 
     expect(mockCallOpenRouter).toHaveBeenCalledOnce()
+  })
+
+  it('groq/ プレフィックスは Groq へルーティングされ、プレフィックスが除去される', async () => {
+    const result = await callLLM({ ...BASE_REQUEST, model: 'groq/llama-3.3-70b-versatile' })
+
+    expect(result.provider).toBe('groq')
+    expect(mockCallGroq).toHaveBeenCalledOnce()
+    expect(mockCallGroq).toHaveBeenCalledWith({ ...BASE_REQUEST, model: 'llama-3.3-70b-versatile' })
+    expect(mockCallOpenRouter).not.toHaveBeenCalled()
+    expect(mockCallAnthropic).not.toHaveBeenCalled()
   })
 
   it('リクエストオブジェクトがそのまま provider に渡される', async () => {
