@@ -16,10 +16,11 @@ router = APIRouter()
 @router.get("/")
 def list_audit_log(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     limit: int = Query(default=50, le=200),
 ):
     """List recent activity for the caller's clinic, most recent first."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     return (
         db.table("audit_logs")

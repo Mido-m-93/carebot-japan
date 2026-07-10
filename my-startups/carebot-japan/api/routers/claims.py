@@ -47,9 +47,10 @@ class UpdateStatusRequest(BaseModel):
 async def create_claim(
     payload: CreateClaimRequest,
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """Create a new claim in draft status for the caller's clinic."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     claim_id = str(uuid.uuid4())
 
@@ -79,11 +80,12 @@ async def create_claim(
 @router.get("/")
 async def list_claims(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     status: str | None = None,
     limit: int = 50,
 ):
     """List all claims for the caller's clinic."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     query = (
         db.table("claims")
@@ -103,9 +105,10 @@ async def list_claims(
 async def get_claim(
     claim_id: str,
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """Get full claim details. Caller must own the claim's clinic."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     result = db.table("claims").select("*").eq("id", claim_id).limit(1).execute()
     if not result.data:
@@ -119,12 +122,13 @@ async def get_claim(
 async def submit_claim(
     claim_id: str,
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
     Submit a claim for processing.
     Runs Claude AI review first to flag any issues before submission.
     """
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     result = db.table("claims").select("*").eq("id", claim_id).limit(1).execute()
     if not result.data:
@@ -179,9 +183,10 @@ async def update_claim_status(
     claim_id: str,
     payload: UpdateStatusRequest,
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """Update claim status (used when insurer responds). Caller must own the claim's clinic."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     result = db.table("claims").select("clinic_id, status").eq("id", claim_id).limit(1).execute()
     if not result.data:

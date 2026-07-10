@@ -39,6 +39,26 @@ _PRICE_IDS = {
 }
 
 
+def _resolve_billing_clinic(authorization: str | None, x_clinic_id: str | None) -> tuple[str, dict]:
+    """
+    Resolve the caller's active clinic, then redirect to its PARENT if it's a
+    location -- billing/subscription/Stripe-customer state always lives on the
+    primary clinic, never on a location (see migrations/add_clinic_locations.sql).
+    Without this, a location's checkout/portal calls would create a Stripe
+    customer orphaned from the real subscription.
+    """
+    clinic_id, clinic = resolve_clinic(authorization, x_clinic_id)
+    parent_id = clinic.get("parent_clinic_id")
+    if not parent_id:
+        return clinic_id, clinic
+
+    rows = get_db().table("clinics").select("*").eq("id", parent_id).limit(1).execute()
+    if not rows.data:
+        return clinic_id, clinic  # shouldn't happen; fall back defensively
+    parent = rows.data[0]
+    return parent["id"], parent
+
+
 # ── POST /billing/create-checkout-session ─────────────────────────────────────
 
 class CheckoutRequest(BaseModel):
@@ -49,6 +69,7 @@ class CheckoutRequest(BaseModel):
 def create_checkout_session(
     body: CheckoutRequest = CheckoutRequest(),
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
     Create a Stripe Checkout session for the Pro or Enterprise plan.
@@ -57,7 +78,7 @@ def create_checkout_session(
     2. Creates (or reuses) a Stripe Customer tied to this clinic.
     3. Returns a Checkout session URL the frontend redirects to.
     """
-    clinic_id, clinic = resolve_clinic(authorization)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
 
     price_id = _PRICE_IDS[body.plan]
 
@@ -240,6 +261,7 @@ def _handle_payment_failed(db, invoice: dict):
 @router.post("/create-portal-session")
 def create_portal_session(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
     Create a Stripe Billing Portal session so the customer can manage their
@@ -247,7 +269,7 @@ def create_portal_session(
 
     Returns a one-time URL that expires after a few minutes.
     """
-    clinic_id, clinic = resolve_clinic(authorization)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
 
     customer_id: str | None = clinic.get("stripe_customer_id")
     if not customer_id:
@@ -269,13 +291,16 @@ def create_portal_session(
 @router.get("/subscription")
 def get_subscription(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
     Return the current billing / subscription status for the authenticated clinic.
+    If the caller's active clinic is a location, this reflects its PARENT's
+    billing state -- locations don't have their own subscription.
 
     Response fields
     ---------------
-    clinic_id                — UUID of the clinic
+    clinic_id                — UUID of the clinic (the parent's, if a location is active)
     tier                      — 'starter' | 'pro' | 'enterprise'
     subscription_status       — 'inactive' | 'active' | 'past_due' | 'cancelled'
     stripe_customer_id        — Stripe customer ID (or None)
@@ -283,7 +308,7 @@ def get_subscription(
     appointments_this_month   — Starter only; None for pro/enterprise (unlimited)
     monthly_limit             — Starter only; None for pro/enterprise (unlimited)
     """
-    clinic_id, clinic = resolve_clinic(authorization)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
     tier = clinic.get("tier", "starter")
     is_starter = tier == "starter"
 
