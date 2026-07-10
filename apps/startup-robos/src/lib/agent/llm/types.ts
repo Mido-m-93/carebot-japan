@@ -10,5 +10,5 @@ export interface LLMResult {
   tokensIn: number
   tokensOut: number
   costUsd: number
-  provider: 'anthropic' | 'openrouter'
+  provider: 'anthropic' | 'openrouter' | 'groq'
 }
