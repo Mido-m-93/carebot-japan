@@ -1,12 +1,14 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function SignupClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const plan = searchParams.get("plan") === "enterprise" ? "enterprise" : "pro";
   const { lang, toggle, t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +46,7 @@ export default function SignupClient() {
       setLoading(false);
     } else {
       router.refresh();
-      router.push("/onboarding");
+      router.push(`/onboarding?plan=${plan}`);
     }
   }
 

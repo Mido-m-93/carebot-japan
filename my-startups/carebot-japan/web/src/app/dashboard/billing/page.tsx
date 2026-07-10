@@ -15,14 +15,18 @@ interface SubscriptionStatus {
   monthly_limit: number | null;
 }
 
+type Plan = "pro" | "enterprise";
+
 const copy = {
   en: {
     title: "Billing & Subscription",
     subtitle: "Manage your plan and payment details",
     plan_starter: "Starter",
     plan_pro: "Pro",
+    plan_enterprise: "Enterprise",
     plan_free: "Free forever",
     plan_price: "$49 / month",
+    plan_price_enterprise: "$99 / month",
     status_active: "Active",
     status_inactive: "Inactive",
     status_past_due: "Payment past due",
@@ -30,8 +34,11 @@ const copy = {
     upgrade_title: "Upgrade to Pro",
     upgrade_desc: "Unlock all features for your clinic",
     upgrade_cta: "Upgrade — $49/month",
+    upgrade_enterprise_title: "Upgrade to Enterprise",
+    upgrade_enterprise_desc: "Everything in Pro, plus priority support",
+    upgrade_enterprise_cta: "Upgrade — $99/month",
     upgrading: "Redirecting to checkout...",
-    manage_title: "Your Pro Subscription",
+    manage_title: "Your Subscription",
     manage_desc: "Full access to all CareBot Japan features",
     manage_cta: "Manage Subscription",
     managing: "Opening billing portal...",
@@ -51,7 +58,14 @@ const copy = {
       "Appointment dashboard",
       "Priority support",
     ],
-    banner_success: "You're now on the Pro plan. Welcome aboard!",
+    features_enterprise: [
+      "Unlimited appointments",
+      "AI appointment scheduling",
+      "Web booking form",
+      "Appointment dashboard",
+      "Dedicated priority support",
+    ],
+    banner_success: "Your plan is now active. Welcome aboard!",
     banner_cancelled: "Checkout was cancelled. Your plan was not changed.",
     error: "Could not load billing status. Please try again.",
     loading: "Loading billing info...",
@@ -65,8 +79,10 @@ const copy = {
     subtitle: "プランとお支払い情報を管理する",
     plan_starter: "スターター",
     plan_pro: "プロ",
+    plan_enterprise: "エンタープライズ",
     plan_free: "無料",
     plan_price: "$49 / 月",
+    plan_price_enterprise: "$99 / 月",
     status_active: "有効",
     status_inactive: "無効",
     status_past_due: "支払い期限超過",
@@ -74,8 +90,11 @@ const copy = {
     upgrade_title: "プロプランにアップグレード",
     upgrade_desc: "クリニックのすべての機能をご利用いただけます",
     upgrade_cta: "アップグレード — $49/月",
+    upgrade_enterprise_title: "エンタープライズにアップグレード",
+    upgrade_enterprise_desc: "プロの全機能 + 優先サポート",
+    upgrade_enterprise_cta: "アップグレード — $99/月",
     upgrading: "チェックアウトに移動中...",
-    manage_title: "プロサブスクリプション",
+    manage_title: "サブスクリプション",
     manage_desc: "CareBot Japan のすべての機能にアクセスできます",
     manage_cta: "サブスクリプションを管理",
     managing: "請求ポータルを開いています...",
@@ -96,7 +115,14 @@ const copy = {
       "予約ダッシュボード",
       "優先サポート",
     ],
-    banner_success: "プロプランに登録しました。ありがとうございます！",
+    features_enterprise: [
+      "予約無制限",
+      "AI予約スケジューリング",
+      "Web予約フォーム",
+      "予約ダッシュボード",
+      "専任優先サポート",
+    ],
+    banner_success: "プランが有効になりました。ありがとうございます！",
     banner_cancelled: "チェックアウトがキャンセルされました。プランは変更されていません。",
     error: "請求情報を読み込めませんでした。もう一度お試しください。",
     loading: "請求情報を読み込み中...",
@@ -115,7 +141,7 @@ export default function BillingPage() {
   const [sub, setSub] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [upgrading, setUpgrading] = useState(false);
+  const [upgradingPlan, setUpgradingPlan] = useState<Plan | null>(null);
   const [managing, setManaging] = useState(false);
   const [billingSuccess, setBillingSuccess] = useState(false);
   const [billingCancelled, setBillingCancelled] = useState(false);
@@ -152,8 +178,8 @@ export default function BillingPage() {
     load();
   }, [router, c.error]);
 
-  async function handleUpgrade() {
-    setUpgrading(true);
+  async function handleUpgrade(plan: Plan) {
+    setUpgradingPlan(plan);
     try {
       const {
         data: { session },
@@ -169,12 +195,13 @@ export default function BillingPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
+        body: JSON.stringify({ plan }),
       });
 
       const body = await res.json();
       if (body.url) window.location.href = body.url;
     } catch {
-      setUpgrading(false);
+      setUpgradingPlan(null);
     }
   }
 
@@ -203,8 +230,15 @@ export default function BillingPage() {
 
   const tier = sub?.tier ?? "starter";
   const status = sub?.subscription_status ?? "inactive";
+  const isStarter = tier === "starter";
   const isPro = tier === "pro";
+  const isEnterprise = tier === "enterprise";
+  const isPaid = isPro || isEnterprise;
   const isPastDue = status === "past_due";
+
+  const planLabel = isEnterprise ? c.plan_enterprise : isPro ? c.plan_pro : c.plan_starter;
+  const planPrice = isEnterprise ? c.plan_price_enterprise : isPro ? c.plan_price : c.plan_free;
+  const planFeatures = isEnterprise ? c.features_enterprise : isPro ? c.features_pro : c.features_starter;
 
   function statusChip(s: string) {
     const base = "text-xs px-2 py-0.5 rounded-full font-medium border";
@@ -253,16 +287,12 @@ export default function BillingPage() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xl font-semibold text-gray-900">
-                    {isPro ? c.plan_pro : c.plan_starter}
-                  </span>
+                  <span className="text-xl font-semibold text-gray-900">{planLabel}</span>
                   <span className={statusChip(status)}>{statusLabel(status)}</span>
                 </div>
-                <p className="text-sm text-gray-500">
-                  {isPro ? c.plan_price : c.plan_free}
-                </p>
+                <p className="text-sm text-gray-500">{planPrice}</p>
               </div>
-              {!isPro && (
+              {!isEnterprise && (
                 <Link href="/pricing" className="text-xs text-teal-600 hover:underline">
                   {c.compare}
                 </Link>
@@ -270,16 +300,16 @@ export default function BillingPage() {
             </div>
 
             <ul className="space-y-2">
-              {(isPro ? c.features_pro : c.features_starter).map((f) => (
+              {planFeatures.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                  <span className={isPro ? "text-teal-500" : "text-gray-300"}>✓</span>
+                  <span className={isPaid ? "text-teal-500" : "text-gray-300"}>✓</span>
                   {f}
                 </li>
               ))}
             </ul>
 
             {/* Usage bar — Starter only, Pro/enterprise are unlimited */}
-            {!isPro && sub?.monthly_limit != null && sub.appointments_this_month != null && (
+            {isStarter && sub?.monthly_limit != null && sub.appointments_this_month != null && (
               <div className="mt-5 pt-5 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs text-gray-500">
@@ -301,8 +331,8 @@ export default function BillingPage() {
             )}
           </div>
 
-          {/* Upgrade CTA — Starter only */}
-          {!isPro && !isPastDue && (
+          {/* Upgrade to Pro — Starter only */}
+          {isStarter && !isPastDue && (
             <div className="bg-teal-800 rounded-xl p-6 text-white">
               <h2 className="text-sm font-semibold mb-1">{c.upgrade_title}</h2>
               <p className="text-xs text-teal-300 mb-4">{c.upgrade_desc}</p>
@@ -315,17 +345,32 @@ export default function BillingPage() {
                 ))}
               </ul>
               <button
-                onClick={handleUpgrade}
-                disabled={upgrading}
+                onClick={() => handleUpgrade("pro")}
+                disabled={upgradingPlan !== null}
                 className="w-full py-2.5 bg-white text-teal-800 text-sm font-semibold rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-colors"
               >
-                {upgrading ? c.upgrading : c.upgrade_cta}
+                {upgradingPlan === "pro" ? c.upgrading : c.upgrade_cta}
               </button>
             </div>
           )}
 
-          {/* Manage subscription — Pro only */}
-          {isPro && !isPastDue && (
+          {/* Upgrade to Enterprise — Starter or Pro */}
+          {!isEnterprise && !isPastDue && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-sm font-semibold text-gray-900 mb-1">{c.upgrade_enterprise_title}</h2>
+              <p className="text-xs text-gray-400 mb-4">{c.upgrade_enterprise_desc}</p>
+              <button
+                onClick={() => handleUpgrade("enterprise")}
+                disabled={upgradingPlan !== null}
+                className="px-4 py-2 text-sm font-medium text-teal-700 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-colors"
+              >
+                {upgradingPlan === "enterprise" ? c.upgrading : c.upgrade_enterprise_cta}
+              </button>
+            </div>
+          )}
+
+          {/* Manage subscription — any paid tier */}
+          {isPaid && !isPastDue && (
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h2 className="text-sm font-semibold text-gray-900 mb-1">{c.manage_title}</h2>
               <p className="text-xs text-gray-400 mb-4">{c.manage_desc}</p>

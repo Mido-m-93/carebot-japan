@@ -8,13 +8,17 @@ const copy = {
     subtitle: "Start free. Upgrade when you're ready.",
     plan_starter: "Starter",
     plan_pro: "Pro",
+    plan_enterprise: "Enterprise",
     price_starter: "Free",
     price_pro: "$49",
+    price_enterprise: "$99",
     price_pro_period: "/ month",
     desc_starter: "Everything you need to get started with AI-powered scheduling.",
     desc_pro: "For clinics ready to scale with full automation and integrations.",
+    desc_enterprise: "For clinics that want dedicated, priority support.",
     cta_starter: "Get started free",
     cta_pro: "Upgrade to Pro",
+    cta_enterprise: "Upgrade to Enterprise",
     features_starter: [
       "Up to 50 appointments / month",
       "AI appointment scheduling",
@@ -27,6 +31,13 @@ const copy = {
       "Web booking form",
       "Appointment dashboard",
       "Priority support",
+    ],
+    features_enterprise: [
+      "Unlimited appointments",
+      "AI appointment scheduling",
+      "Web booking form",
+      "Appointment dashboard",
+      "Dedicated priority support",
     ],
     popular: "Most popular",
     brand: "CareBot Japan",
@@ -53,13 +64,17 @@ const copy = {
     subtitle: "無料で始めて、準備ができたらアップグレード。",
     plan_starter: "スターター",
     plan_pro: "プロ",
+    plan_enterprise: "エンタープライズ",
     price_starter: "無料",
     price_pro: "$49",
+    price_enterprise: "$99",
     price_pro_period: " / 月",
     desc_starter: "AIスケジューリングを始めるのに必要なものがすべて揃っています。",
     desc_pro: "フルオートメーションと連携機能でクリニックをスケールアップ。",
+    desc_enterprise: "専任の優先サポートをご希望のクリニック向け。",
     cta_starter: "無料で始める",
     cta_pro: "プロにアップグレード",
+    cta_enterprise: "エンタープライズにアップグレード",
     features_starter: [
       "月50件まで予約",
       "AI予約スケジューリング",
@@ -72,6 +87,13 @@ const copy = {
       "Web予約フォーム",
       "予約ダッシュボード",
       "優先サポート",
+    ],
+    features_enterprise: [
+      "予約無制限",
+      "AI予約スケジューリング",
+      "Web予約フォーム",
+      "予約ダッシュボード",
+      "専任優先サポート",
     ],
     popular: "人気",
     brand: "CareBot Japan",
@@ -136,7 +158,7 @@ export default function PricingPage() {
         </div>
 
         {/* Plans */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 mb-20">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3 mb-20">
           {/* Starter */}
           <div className="bg-white rounded-2xl border border-gray-200 p-8 flex flex-col">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
@@ -192,6 +214,34 @@ export default function PricingPage() {
               className="block text-center py-2.5 bg-white text-teal-800 text-sm font-semibold rounded-lg hover:bg-teal-50 transition-colors"
             >
               {c.cta_pro}
+            </Link>
+          </div>
+
+          {/* Enterprise */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-8 flex flex-col">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
+              {c.plan_enterprise}
+            </p>
+            <div className="mb-2 flex items-end gap-1">
+              <span className="text-4xl font-bold text-gray-900">{c.price_enterprise}</span>
+              <span className="text-gray-400 text-sm mb-1">{c.price_pro_period}</span>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">{c.desc_enterprise}</p>
+
+            <ul className="space-y-3 mb-8 flex-1">
+              {c.features_enterprise.map((f) => (
+                <li key={f} className="flex items-start gap-3 text-sm text-gray-600">
+                  <CheckIcon active={false} />
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            <Link
+              href="/dashboard/billing"
+              className="block text-center py-2.5 border border-gray-200 text-sm font-medium text-gray-700 rounded-lg hover:border-teal-400 hover:text-teal-700 transition-colors"
+            >
+              {c.cta_enterprise}
             </Link>
           </div>
         </div>
