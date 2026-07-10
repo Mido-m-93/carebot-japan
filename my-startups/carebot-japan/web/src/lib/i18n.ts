@@ -56,6 +56,7 @@ export const translations = {
     nav_appointments: "Appointments",
     nav_review: "Review Queue",
     nav_claims: "Claims",
+    nav_activity: "Activity Log",
     nav_test: "Test Message",
     nav_billing: "Billing",
     nav_signout: "Sign out",
@@ -204,6 +205,19 @@ export const translations = {
     claims_status_approved: "Approved",
     claims_status_rejected: "Rejected",
     claims_status_resubmit: "Needs Resubmission",
+
+    // Activity log page
+    activity_title: "Activity Log",
+    activity_subtitle: "Every AI action, appointment, and claim event for your clinic",
+    activity_empty: "No activity yet",
+    activity_error: "Could not load activity log",
+    activity_action_claude_extraction_run: "AI processed an incoming message",
+    activity_action_appointment_created: "Appointment created",
+    activity_action_sms_sent: "SMS confirmation sent",
+    activity_action_review_item_created: "Flagged for staff review",
+    activity_action_claim_created: "Claim created",
+    activity_action_claim_submitted: "Claim submitted for AI review",
+    activity_action_claim_status_updated: "Claim status updated",
   },
 
   ja: {
@@ -261,6 +275,7 @@ export const translations = {
     nav_appointments: "予約一覧",
     nav_review: "要確認",
     nav_claims: "保険請求",
+    nav_activity: "アクティビティ履歴",
     nav_test: "テスト送信",
     nav_billing: "お支払い",
     nav_signout: "ログアウト",
@@ -409,6 +424,19 @@ export const translations = {
     claims_status_approved: "承認",
     claims_status_rejected: "却下",
     claims_status_resubmit: "再申請が必要",
+
+    // Activity log page
+    activity_title: "アクティビティ履歴",
+    activity_subtitle: "クリニックのAI処理・予約・保険請求の全履歴",
+    activity_empty: "履歴はまだありません",
+    activity_error: "履歴を読み込めませんでした",
+    activity_action_claude_extraction_run: "AIが受信メッセージを処理しました",
+    activity_action_appointment_created: "予約が作成されました",
+    activity_action_sms_sent: "SMS確認を送信しました",
+    activity_action_review_item_created: "スタッフの確認待ちに追加されました",
+    activity_action_claim_created: "請求を作成しました",
+    activity_action_claim_submitted: "請求をAI審査に提出しました",
+    activity_action_claim_status_updated: "請求のステータスが更新されました",
   },
 } as const;
 

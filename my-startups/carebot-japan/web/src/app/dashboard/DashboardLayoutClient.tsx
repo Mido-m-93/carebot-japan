@@ -26,6 +26,7 @@ export default function DashboardLayoutClient({ children }: { children: ReactNod
     { href: "/dashboard/appointments", label: t.nav_appointments },
     { href: "/dashboard/review", label: t.nav_review },
     { href: "/dashboard/claims", label: t.nav_claims },
+    { href: "/dashboard/activity", label: t.nav_activity },
     { href: "/dashboard/test", label: t.nav_test },
     { href: "/dashboard/billing", label: t.nav_billing },
   ];
