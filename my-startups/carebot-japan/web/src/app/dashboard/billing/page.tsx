@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase, API_URL } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useClinicContext } from "@/contexts/ClinicContext";
 
 interface SubscriptionStatus {
   clinic_id: string;
@@ -63,6 +64,7 @@ const copy = {
       "AI appointment scheduling",
       "Web booking form",
       "Appointment dashboard",
+      "Multiple clinic locations",
       "Dedicated priority support",
     ],
     banner_success: "Your plan is now active. Welcome aboard!",
@@ -120,6 +122,7 @@ const copy = {
       "AI予約スケジューリング",
       "Web予約フォーム",
       "予約ダッシュボード",
+      "複数拠点管理",
       "専任優先サポート",
     ],
     banner_success: "プランが有効になりました。ありがとうございます！",
@@ -136,6 +139,7 @@ const copy = {
 export default function BillingPage() {
   const router = useRouter();
   const { lang } = useLanguage();
+  const { activeClinicId } = useClinicContext();
   const c = copy[lang] ?? copy.en;
 
   const [sub, setSub] = useState<SubscriptionStatus | null>(null);
@@ -164,7 +168,7 @@ export default function BillingPage() {
         }
 
         const res = await fetch(`${API_URL}/billing/subscription`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
         });
 
         if (!res.ok) throw new Error(`${res.status}`);
@@ -176,7 +180,7 @@ export default function BillingPage() {
       }
     }
     load();
-  }, [router, c.error]);
+  }, [router, c.error, activeClinicId]);
 
   async function handleUpgrade(plan: Plan) {
     setUpgradingPlan(plan);
@@ -194,6 +198,7 @@ export default function BillingPage() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
+          "X-Clinic-Id": activeClinicId ?? "",
         },
         body: JSON.stringify({ plan }),
       });
@@ -218,7 +223,7 @@ export default function BillingPage() {
 
       const res = await fetch(`${API_URL}/billing/create-portal-session`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
       });
 
       const body = await res.json();

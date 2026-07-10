@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase, API_URL } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useClinicContext } from "@/contexts/ClinicContext";
 
 interface QueueItem {
   id: string;
@@ -32,6 +33,7 @@ function ConfidenceBadge({ value }: { value: number | null }) {
 
 export default function ReviewQueuePage() {
   const { t, lang } = useLanguage();
+  const { activeClinicId } = useClinicContext();
   const [items, setItems] = useState<QueueItem[]>([]);
   const [autoConfirmedItems, setAutoConfirmedItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,7 @@ export default function ReviewQueuePage() {
 
   async function authHeader() {
     const { data: { session } } = await supabase.auth.getSession();
-    return session ? { Authorization: `Bearer ${session.access_token}` } : null;
+    return session ? { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" } : null;
   }
 
   async function load() {
@@ -61,7 +63,7 @@ export default function ReviewQueuePage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeClinicId]);
 
   function getEdit(itemId: string, field: string, fallback: string) {
     return edits[itemId]?.[field] ?? fallback ?? "";

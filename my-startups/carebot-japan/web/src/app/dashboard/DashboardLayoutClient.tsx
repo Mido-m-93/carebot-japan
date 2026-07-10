@@ -4,11 +4,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ClinicProvider, useClinicContext } from "@/contexts/ClinicContext";
 
 export default function DashboardLayoutClient({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const { lang, toggle, t } = useLanguage();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -21,12 +20,28 @@ export default function DashboardLayoutClient({ children }: { children: ReactNod
     });
   }, [router]);
 
+  if (checking) return null;
+
+  return (
+    <ClinicProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </ClinicProvider>
+  );
+}
+
+function DashboardShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { lang, toggle, t } = useLanguage();
+  const { locations, activeClinicId, setActiveClinicId, loading: clinicLoading } = useClinicContext();
+
   const navItems = [
     { href: "/dashboard", label: t.nav_overview },
     { href: "/dashboard/appointments", label: t.nav_appointments },
     { href: "/dashboard/review", label: t.nav_review },
     { href: "/dashboard/claims", label: t.nav_claims },
     { href: "/dashboard/activity", label: t.nav_activity },
+    { href: "/dashboard/locations", label: t.nav_locations },
     { href: "/dashboard/test", label: t.nav_test },
     { href: "/dashboard/billing", label: t.nav_billing },
   ];
@@ -36,7 +51,12 @@ export default function DashboardLayoutClient({ children }: { children: ReactNod
     router.push("/login");
   }
 
-  if (checking) return null;
+  const activeLocation = locations.find((l) => l.clinic_id === activeClinicId);
+
+  // Wait for the clinic context's first fetch so every page under it sends
+  // the right X-Clinic-Id from the very first render, instead of racing ahead
+  // with no location selected.
+  if (clinicLoading) return null;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -44,7 +64,23 @@ export default function DashboardLayoutClient({ children }: { children: ReactNod
       <aside className="w-56 bg-teal-800 text-teal-50 flex flex-col shrink-0">
         <div className="px-5 py-5 border-b border-teal-600">
           <p className="font-semibold text-sm tracking-wide">CareBot Japan</p>
-          <p className="text-xs text-teal-200 mt-0.5">{t.nav_clinic}</p>
+          {locations.length > 1 ? (
+            <select
+              value={activeClinicId ?? ""}
+              onChange={(e) => setActiveClinicId(e.target.value)}
+              className="mt-1.5 w-full text-xs bg-teal-700 text-teal-100 border border-teal-600 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400"
+            >
+              {locations.map((loc) => (
+                <option key={loc.clinic_id} value={loc.clinic_id}>
+                  {lang === "ja" ? loc.name_jp || loc.name : loc.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-xs text-teal-200 mt-0.5">
+              {activeLocation ? (lang === "ja" ? activeLocation.name_jp || activeLocation.name : activeLocation.name) : t.nav_clinic}
+            </p>
+          )}
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           {navItems.map((item) => {

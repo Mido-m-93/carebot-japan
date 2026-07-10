@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useClinicContext } from "@/contexts/ClinicContext";
 
 interface Stats {
   todayCount: number;
@@ -31,6 +32,7 @@ function StatCard({ label, value, accent, href }: { label: string; value: number
 
 export default function DashboardOverviewPage() {
   const { t, lang } = useLanguage();
+  const { activeClinicId } = useClinicContext();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<RecentAppointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,7 @@ export default function DashboardOverviewPage() {
       if (!session) return;
       try {
         const res = await fetch(`${API_URL}/clinics/me`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
         });
         if (res.ok) {
           const data = await res.json();
@@ -57,13 +59,13 @@ export default function DashboardOverviewPage() {
         }
       } catch { /* non-critical */ }
     });
-  }, []);
+  }, [activeClinicId]);
 
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
-      const authHeader = { Authorization: `Bearer ${session.access_token}` };
+      const authHeader = { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" };
 
       const now = new Date();
       const todayStr = now.toISOString().slice(0, 10);
@@ -87,7 +89,7 @@ export default function DashboardOverviewPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [activeClinicId]);
 
   function formatDateTime(iso: string | null) {
     if (!iso) return "—";

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useClinicContext } from "@/contexts/ClinicContext";
 
 interface Appointment {
   id: string;
@@ -27,6 +28,7 @@ type VisitFilter = "all" | "first" | "return";
 
 export default function AppointmentsPage() {
   const { t, lang } = useLanguage();
+  const { activeClinicId } = useClinicContext();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [visitFilter, setVisitFilter] = useState<VisitFilter>("all");
@@ -37,7 +39,7 @@ export default function AppointmentsPage() {
       if (!session) { setLoading(false); return; }
 
       const data = await fetch(`${API_URL}/appointments/`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
       })
         .then((r) => r.ok ? r.json() : [])
         .catch(() => []);
@@ -45,7 +47,7 @@ export default function AppointmentsPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [activeClinicId]);
 
   function formatDateTime(iso: string | null) {
     if (!iso) return "—";
