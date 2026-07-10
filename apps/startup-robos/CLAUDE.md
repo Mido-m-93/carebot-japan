@@ -24,6 +24,10 @@ If the user asks you to "build Robo Match" or "build OpenCareers", and you are r
 
 If you are reading this file from inside a standalone business repo (not a StartupRobos instance) — stop, warn the user, and recommend they create an instance from the StartupRobos template and move the work there.
 
+### Exception: pre-existing businesses registered from outside `businesses/`
+
+Mido's 3 real businesses (JapanUnlocked, Kanso Templates, CareBot Japan) are registered as `startups` rows in Supabase (see `supabase/migrations/20260706000000_seed_real_businesses.sql`), but their code lives at `my-startups/<slug>/` in the parent repo, not under `businesses/<slug>/` — they were hand-built before being wired into this framework and CareBot Japan is already deployed with real customers. **Do not copy or move their code into `businesses/`.** When the CTO/CMO/COO agents need to work on these three, edit the code in place at `my-startups/<slug>/`. New businesses the CEO selects from scratch still follow the normal `businesses/<slug>/` pattern above.
+
 ### First-time setup for a new instance
 If `.env.local` does not exist and `git remote get-url origin` does NOT point to `Robo-Co-op/StartupRobos`, the operator is setting up a fresh instance. Direct them to run:
 ```bash
@@ -109,6 +113,7 @@ Once you get user approval, everything becomes **fully autonomous**. Don't ask f
 | **affiliate_seo** | Produce multilingual SEO articles, comparison/review sites | Affiliate commissions |
 | **digital_product** | Sell templates/ebooks/prompt sets on Gumroad | Direct sales |
 | **game_ads** | Generate HTML5 games → Deploy → AdSense | Ad revenue |
+| **saas_subscription** | Pre-existing SaaS with real customers/billing (e.g. CareBot Japan) — not zero-investment, registered as an exception | Stripe subscriptions |
 
 ### Synergy Expansion (After Success)
 - affiliate → Newsletter (Substack)

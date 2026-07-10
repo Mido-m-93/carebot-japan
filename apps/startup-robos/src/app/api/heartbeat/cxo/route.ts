@@ -8,37 +8,51 @@ import type { TaskType } from '@/lib/agent/responseSchemas'
 // CXO heartbeat runs 5 parallel AI calls
 export const maxDuration = 300
 
-// Business-specific CXO tasks (CMO + CTO)
-const BUSINESS_TASKS: Record<string, { role: string; prompt: string; task_type: TaskType }> = {
+type Startup = { id: string; name: string; business_type: string }
+
+/** DBから取得したユーザー入力値をプロンプトに埋め込む前にサニタイズする */
+function sanitizeForPrompt(text: string, maxLen = 200): string {
+  return text
+    .slice(0, maxLen)
+    .replace(/^(#{1,6})\s/gm, '\\$1 ') // markdown heading injection 対策
+}
+
+// Business-specific CXO task templates (CMO + CTO), keyed by business_type.
+// {name} is replaced with the actual startup name from the DB, sanitized.
+const BUSINESS_TASKS: Record<string, { role: string; task_type: TaskType; prompt: (name: string) => string }> = {
   affiliate_seo: {
     role: 'CMO',
     task_type: 'market_research',
-    prompt: `You are an SEO-specialist CMO. Propose 3 ideas to improve customer acquisition for AI Tool Lab (AI tools directory site).
+    prompt: (name) => `You are an SEO-specialist CMO. Propose 3 ideas to improve customer acquisition for ${name} (SEO/affiliate content site).
 Be specific with keyword strategies, article title suggestions, and internal linking improvements. Keep each proposal to 2-3 lines.`,
   },
   digital_product: {
     role: 'CMO',
     task_type: 'market_research',
-    prompt: `You are a digital product CMO. Propose 3 sales promotion ideas for Prompt Pack (Claude/ChatGPT prompt collection sold on Gumroad).
+    prompt: (name) => `You are a digital product CMO. Propose 3 sales promotion ideas for ${name} (digital products sold on Gumroad).
 Consider social strategies, landing page improvements, and pricing. Keep each proposal to 2-3 lines.`,
   },
   game_ads: {
     role: 'CTO',
     task_type: 'cto_review',
-    prompt: `You are a game development CTO. Propose 3 engagement improvement ideas for Puzzle Games (Sudoku and hiragana matching games with AdSense revenue).
+    prompt: (name) => `You are a game development CTO. Propose 3 engagement improvement ideas for ${name} (ad-supported HTML5 games).
 Consider feature additions, UX improvements, and SEO optimization. Keep each proposal to 2-3 lines.`,
+  },
+  saas_subscription: {
+    role: 'CMO',
+    task_type: 'market_research',
+    prompt: (name) => `You are a SaaS growth CMO. Propose 3 ideas to get the first paying customers for ${name} (subscription SaaS).
+Consider outreach channels, onboarding/trial friction, and pricing or positioning changes. Keep each proposal to 2-3 lines.`,
   },
 }
 
-// Cross-functional CXO tasks (COO + CFO) — common across all businesses
-const CROSS_CXO_TASKS: Array<{ role: string; task_type: TaskType; prompt: string }> = [
+// Cross-functional CXO tasks (COO + CFO) — built dynamically from whichever businesses are active
+const CROSS_CXO_TASKS: Array<{ role: string; task_type: TaskType; prompt: (context: string) => string }> = [
   {
     role: 'COO',
     task_type: 'ops_review',
-    prompt: `You are the COO (Chief Operating Officer) of Launchpad. Review the operations of these 3 businesses:
-- AI Tool Lab (GitHub Pages, affiliate_seo)
-- Prompt Pack (GitHub Pages + Gumroad, digital_product)
-- Puzzle Games (GitHub Pages + AdSense, game_ads)
+    prompt: (context) => `You are the COO (Chief Operating Officer) of StartupRobos. Review the operations of these businesses:
+${context}
 
 Report on:
 1. Any deployment or hosting challenges
@@ -48,10 +62,8 @@ Report on:
   {
     role: 'CFO',
     task_type: 'budget_review',
-    prompt: `You are the CFO (Chief Financial Officer) of Launchpad. Review the monetization status of these 3 businesses:
-- AI Tool Lab: Amazon Associates (tag=robocoop-ai-22)
-- Prompt Pack: Gumroad sales (3 products at $9/$7/$12)
-- Puzzle Games: Google AdSense (pending approval)
+    prompt: (context) => `You are the CFO (Chief Financial Officer) of StartupRobos. Review the monetization status of these businesses:
+${context}
 
 Report on:
 1. Expected monthly revenue per channel
@@ -59,6 +71,12 @@ Report on:
 3. One proposal to improve revenue`,
   },
 ]
+
+function buildCrossContext(startups: Startup[]): string {
+  return startups
+    .map(s => `- ${sanitizeForPrompt(s.name, 80)} (${sanitizeForPrompt(s.business_type ?? '', 40)})`)
+    .join('\n')
+}
 
 export async function GET(req: NextRequest) {
   const authError = requireCronAuth(req)
@@ -84,21 +102,22 @@ export async function GET(req: NextRequest) {
       const { content, costUsd } = await runHeartbeatTask(supabase, {
         model,
         maxTokens: 800,
-        prompt: task.prompt,
-        systemPrompt: `You are the ${task.role} of Launchpad. Provide actionable and specific recommendations.`,
+        prompt: task.prompt(sanitizeForPrompt(startup.name, 80)),
+        systemPrompt: `You are the ${task.role} of StartupRobos. Provide actionable and specific recommendations.`,
         startupId: startup.id,
         taskType: task.task_type,
       })
       return { startup: startup.name, role: task.role, suggestions: content, costUsd }
     })
 
+  const crossContext = buildCrossContext(startups)
   const crossPromises = CROSS_CXO_TASKS.map(async task => {
     const model = await getModelForTask(task.task_type, supabase)
     const { content, costUsd } = await runHeartbeatTask(supabase, {
       model,
       maxTokens: 800,
-      prompt: task.prompt,
-      systemPrompt: `You are the ${task.role} of Launchpad. Provide actionable and specific recommendations.`,
+      prompt: task.prompt(crossContext),
+      systemPrompt: `You are the ${task.role} of StartupRobos. Provide actionable and specific recommendations.`,
       startupId: startups[0].id,
       taskType: task.task_type,
     })
