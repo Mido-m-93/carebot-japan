@@ -11,6 +11,8 @@ interface SubscriptionStatus {
   subscription_status: "inactive" | "active" | "past_due" | "cancelled";
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  appointments_this_month: number | null;
+  monthly_limit: number | null;
 }
 
 const copy = {
@@ -55,6 +57,8 @@ const copy = {
     loading: "Loading billing info...",
     current_plan: "Current Plan",
     compare: "Compare plans →",
+    usage_label: (used: number, limit: number) => `${used} / ${limit} appointments this month`,
+    usage_near_limit: "You're close to your monthly limit — new bookings will be paused until you upgrade or next month starts.",
   },
   ja: {
     title: "お支払いとプラン",
@@ -98,6 +102,8 @@ const copy = {
     loading: "請求情報を読み込み中...",
     current_plan: "現在のプラン",
     compare: "プランを比較 →",
+    usage_label: (used: number, limit: number) => `今月の予約 ${used} / ${limit} 件`,
+    usage_near_limit: "月間の上限に近づいています。アップグレードするか、来月まで新規予約が一時停止されます。",
   },
 };
 
@@ -271,6 +277,28 @@ export default function BillingPage() {
                 </li>
               ))}
             </ul>
+
+            {/* Usage bar — Starter only, Pro/enterprise are unlimited */}
+            {!isPro && sub?.monthly_limit != null && sub.appointments_this_month != null && (
+              <div className="mt-5 pt-5 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-gray-500">
+                    {c.usage_label(sub.appointments_this_month, sub.monthly_limit)}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      sub.appointments_this_month >= sub.monthly_limit ? "bg-red-400" : "bg-teal-500"
+                    }`}
+                    style={{ width: `${Math.min(100, (sub.appointments_this_month / sub.monthly_limit) * 100)}%` }}
+                  />
+                </div>
+                {sub.appointments_this_month >= sub.monthly_limit * 0.8 && (
+                  <p className="text-xs text-amber-600 mt-2">{c.usage_near_limit}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Upgrade CTA — Starter only */}

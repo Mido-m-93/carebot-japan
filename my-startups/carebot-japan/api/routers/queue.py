@@ -7,6 +7,7 @@ from services.scheduling import process_message
 from services.email import send_appointment_confirmation
 from services.calendar import push_appointment_to_calendar
 from services.auth import resolve_clinic, require_own_clinic
+from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
 from routers.appointments import get_available_slots
 
 router = APIRouter()
@@ -47,7 +48,7 @@ def resolve_queue_item(
     Human resolves a review queue item.
     Optionally creates the appointment from the corrected data.
     """
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, clinic = resolve_clinic(authorization)
     db = get_db()
 
     existing = db.table("review_queue").select("clinic_id").eq("id", item_id).limit(1).execute()
@@ -63,6 +64,14 @@ def resolve_queue_item(
     # Optionally book the appointment from corrected data
     appointment_id = None
     if body.create_appointment:
+        if quota_exceeded(clinic):
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "error": "plan_limit_reached",
+                    "message": f"This clinic has reached its Starter plan limit of {STARTER_MONTHLY_LIMIT} appointments this month. Upgrade to Pro for unlimited appointments.",
+                },
+            )
         r = body.resolution
 
         # ── Availability check ────────────────────────────────

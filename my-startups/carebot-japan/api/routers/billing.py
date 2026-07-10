@@ -21,6 +21,7 @@ from typing import Annotated
 
 from services.db import get_db
 from services.auth import resolve_clinic
+from services.quota import appointments_this_month, STARTER_MONTHLY_LIMIT
 
 router = APIRouter()
 
@@ -259,18 +260,24 @@ def get_subscription(
 
     Response fields
     ---------------
-    clinic_id            — UUID of the clinic
-    tier                 — 'starter' | 'pro' | 'enterprise'
-    subscription_status  — 'inactive' | 'active' | 'past_due' | 'cancelled'
-    stripe_customer_id   — Stripe customer ID (or None)
-    stripe_subscription_id — Stripe subscription ID (or None)
+    clinic_id                — UUID of the clinic
+    tier                      — 'starter' | 'pro' | 'enterprise'
+    subscription_status       — 'inactive' | 'active' | 'past_due' | 'cancelled'
+    stripe_customer_id        — Stripe customer ID (or None)
+    stripe_subscription_id    — Stripe subscription ID (or None)
+    appointments_this_month   — Starter only; None for pro/enterprise (unlimited)
+    monthly_limit             — Starter only; None for pro/enterprise (unlimited)
     """
     clinic_id, clinic = resolve_clinic(authorization)
+    tier = clinic.get("tier", "starter")
+    is_starter = tier == "starter"
 
     return {
-        "clinic_id":              clinic_id,
-        "tier":                   clinic.get("tier", "starter"),
-        "subscription_status":    clinic.get("subscription_status", "inactive"),
-        "stripe_customer_id":     clinic.get("stripe_customer_id"),
+        "clinic_id":               clinic_id,
+        "tier":                    tier,
+        "subscription_status":     clinic.get("subscription_status", "inactive"),
+        "stripe_customer_id":      clinic.get("stripe_customer_id"),
         "stripe_subscription_id": clinic.get("stripe_subscription_id"),
+        "appointments_this_month": appointments_this_month(clinic_id) if is_starter else None,
+        "monthly_limit":           STARTER_MONTHLY_LIMIT if is_starter else None,
     }
