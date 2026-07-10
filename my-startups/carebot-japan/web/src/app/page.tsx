@@ -62,8 +62,10 @@ const copy = {
     pricing_sub: "Start free. Upgrade when you grow.",
     plan_starter: "Starter",
     plan_pro: "Pro",
+    plan_enterprise: "Enterprise",
     price_free: "Free",
     price_pro: "$49",
+    price_enterprise: "$99",
     price_mo: "/ month",
     starter_features: [
       "Up to 50 appointments / month",
@@ -78,8 +80,17 @@ const copy = {
       "Appointment dashboard",
       "Priority support",
     ],
+    enterprise_features: [
+      "Unlimited appointments",
+      "AI appointment scheduling",
+      "Web booking form",
+      "Appointment dashboard",
+      "Multiple clinic locations",
+      "Dedicated priority support",
+    ],
     cta_starter: "Get started free",
     cta_pro: "Start with Pro",
+    cta_enterprise: "Start with Enterprise",
     popular: "Most popular",
 
     bottom_title: "Ready to automate your bookings?",
@@ -150,8 +161,10 @@ const copy = {
     pricing_sub: "無料で始めて、成長に合わせてアップグレード。",
     plan_starter: "スターター",
     plan_pro: "プロ",
+    plan_enterprise: "エンタープライズ",
     price_free: "無料",
     price_pro: "$49",
+    price_enterprise: "$99",
     price_mo: " / 月",
     starter_features: [
       "月50件まで予約",
@@ -166,8 +179,17 @@ const copy = {
       "予約ダッシュボード",
       "優先サポート",
     ],
+    enterprise_features: [
+      "予約無制限",
+      "AI予約スケジューリング",
+      "Web予約フォーム",
+      "予約ダッシュボード",
+      "複数拠点管理",
+      "専任優先サポート",
+    ],
     cta_starter: "無料で始める",
     cta_pro: "プロプランで始める",
+    cta_enterprise: "エンタープライズで始める",
     popular: "人気",
 
     bottom_title: "予約管理を自動化する準備はできましたか？",
@@ -351,7 +373,7 @@ export default function LandingPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{c.pricing_title}</h2>
             <p className="text-gray-500 text-sm">{c.pricing_sub}</p>
           </div>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3 max-w-4xl mx-auto">
             {/* Starter */}
             <div className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col transition-shadow hover:shadow-md hover:shadow-gray-900/5">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
@@ -397,6 +419,30 @@ export default function LandingPage() {
                 className="block text-center py-2.5 bg-white text-teal-800 text-sm font-semibold rounded-xl hover:bg-teal-50 transition-colors"
               >
                 {c.cta_pro}
+              </Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col transition-shadow hover:shadow-md hover:shadow-gray-900/5">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
+                {c.plan_enterprise}
+              </p>
+              <div className="flex items-end gap-1 mb-5">
+                <span className="text-3xl font-bold text-gray-900">{c.price_enterprise}</span>
+                <span className="text-gray-400 text-sm mb-0.5">{c.price_mo}</span>
+              </div>
+              <ul className="space-y-2.5 flex-1 mb-6">
+                {c.enterprise_features.map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="text-gray-300">✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/signup?plan=enterprise"
+                className="block text-center py-2.5 border border-gray-200 text-sm font-medium text-gray-700 rounded-xl hover:border-teal-400 hover:text-teal-700 transition-colors"
+              >
+                {c.cta_enterprise}
               </Link>
             </div>
           </div>

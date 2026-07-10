@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -45,6 +45,8 @@ const copy = {
 
 export default function OnboardingClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const plan = searchParams.get("plan") === "enterprise" ? "enterprise" : "pro";
   const { lang, toggle } = useLanguage();
   const c = copy[lang] ?? copy.en;
 
@@ -121,6 +123,7 @@ export default function OnboardingClient() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          plan,
           clinic_name: clinicName.trim(),
           success_url: `${window.location.origin}/onboarding/success`,
           cancel_url: `${window.location.origin}/onboarding`,
@@ -162,7 +165,12 @@ export default function OnboardingClient() {
           {/* Header row */}
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-base font-semibold text-gray-900 mb-1">{c.title}</h1>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-base font-semibold text-gray-900">{c.title}</h1>
+                <span className="text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                  {plan === "enterprise" ? (lang === "ja" ? "エンタープライズ" : "Enterprise") : (lang === "ja" ? "プロ" : "Pro")}
+                </span>
+              </div>
               <p className="text-xs text-gray-400">{c.subtitle}</p>
             </div>
             <button

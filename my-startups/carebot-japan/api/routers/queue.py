@@ -16,10 +16,11 @@ router = APIRouter()
 @router.get("/")
 def list_queue(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     status: str = "pending",
 ):
     """List review queue items for the caller's clinic."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     return (
         db.table("review_queue")
@@ -43,12 +44,13 @@ def resolve_queue_item(
     item_id: str,
     body: ResolveRequest,
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
     Human resolves a review queue item.
     Optionally creates the appointment from the corrected data.
     """
-    clinic_id, clinic = resolve_clinic(authorization)
+    clinic_id, clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
 
     existing = db.table("review_queue").select("clinic_id").eq("id", item_id).limit(1).execute()
@@ -167,9 +169,10 @@ def resolve_queue_item(
 def dismiss_queue_item(
     item_id: str,
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """Dismiss a review queue item without creating an appointment."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
 
     existing = db.table("review_queue").select("clinic_id").eq("id", item_id).limit(1).execute()

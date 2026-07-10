@@ -203,11 +203,12 @@ def available_slots(
 @router.get("/")
 def list_appointments(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     from_date: str = Query(default=None, description="YYYY-MM-DD"),
     to_date: str = Query(default=None, description="YYYY-MM-DD"),
 ):
     """List appointments for the caller's clinic, optionally filtered by date range."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     query = (
         db.table("appointments")
@@ -227,9 +228,10 @@ def list_appointments(
 def cancel_appointment(
     appointment_id: str,
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """Cancel an appointment. Caller must be staff at the appointment's own clinic."""
-    clinic_id, _clinic = resolve_clinic(authorization)
+    clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
 
     existing = db.table("appointments").select("clinic_id").eq("id", appointment_id).limit(1).execute()

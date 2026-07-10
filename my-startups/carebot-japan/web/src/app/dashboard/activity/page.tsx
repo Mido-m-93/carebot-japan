@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useClinicContext } from "@/contexts/ClinicContext";
 
 interface AuditLogEntry {
   id: string;
@@ -25,6 +26,7 @@ const ACTION_ICONS: Record<string, string> = {
 
 export default function ActivityPage() {
   const { t, lang } = useLanguage();
+  const { activeClinicId } = useClinicContext();
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function ActivityPage() {
         if (!session) { setLoading(false); return; }
 
         const res = await fetch(`${API_URL}/audit-log/?limit=100`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
         });
         if (!res.ok) throw new Error(`API error ${res.status}`);
         const data = await res.json();
@@ -48,7 +50,7 @@ export default function ActivityPage() {
       }
     }
     load();
-  }, [t.activity_error]);
+  }, [t.activity_error, activeClinicId]);
 
   function actionLabel(action: string): string {
     const key = `activity_action_${action}` as keyof typeof t;

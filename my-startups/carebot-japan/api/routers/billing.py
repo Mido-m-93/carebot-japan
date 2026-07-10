@@ -2,22 +2,24 @@
 """
 Stripe billing endpoints.
 
-POST /billing/create-checkout-session — start a $49/month Pro checkout
+POST /billing/create-checkout-session — start a Pro ($49/mo) or Enterprise ($99/mo) checkout
 POST /billing/webhook                 — Stripe signed webhook (raw body required)
 GET  /billing/subscription            — current subscription status for the caller's clinic
 
 Required environment variables:
-    STRIPE_SECRET_KEY        — Stripe secret key (sk_live_... or sk_test_...)
-    STRIPE_WEBHOOK_SECRET    — Stripe webhook signing secret (whsec_...)
-    STRIPE_PRICE_ID          — Stripe Price ID for the $49/month plan (price_...)
-    NEXT_PUBLIC_APP_URL      — frontend URL used for success/cancel redirects
+    STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
+    STRIPE_WEBHOOK_SECRET      — Stripe webhook signing secret (whsec_...)
+    STRIPE_PRICE_ID            — Stripe Price ID for the $49/month Pro plan (price_...)
+    STRIPE_ENTERPRISE_PRICE_ID — Stripe Price ID for the $99/month Enterprise plan (price_...)
+    NEXT_PUBLIC_APP_URL        — frontend URL used for success/cancel redirects
 """
 
 import os
 import stripe
 
 from fastapi import APIRouter, Request, HTTPException, Header
-from typing import Annotated
+from pydantic import BaseModel
+from typing import Annotated, Literal
 
 from services.db import get_db
 from services.auth import resolve_clinic
@@ -29,30 +31,61 @@ router = APIRouter()
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 
-_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-_PRICE_ID       = os.getenv("STRIPE_PRICE_ID", "")
-_APP_URL        = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
+_WEBHOOK_SECRET      = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+_APP_URL             = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
+_PRICE_IDS = {
+    "pro":        os.getenv("STRIPE_PRICE_ID", ""),
+    "enterprise": os.getenv("STRIPE_ENTERPRISE_PRICE_ID", ""),
+}
+
+
+def _resolve_billing_clinic(authorization: str | None, x_clinic_id: str | None) -> tuple[str, dict]:
+    """
+    Resolve the caller's active clinic, then redirect to its PARENT if it's a
+    location -- billing/subscription/Stripe-customer state always lives on the
+    primary clinic, never on a location (see migrations/add_clinic_locations.sql).
+    Without this, a location's checkout/portal calls would create a Stripe
+    customer orphaned from the real subscription.
+    """
+    clinic_id, clinic = resolve_clinic(authorization, x_clinic_id)
+    parent_id = clinic.get("parent_clinic_id")
+    if not parent_id:
+        return clinic_id, clinic
+
+    rows = get_db().table("clinics").select("*").eq("id", parent_id).limit(1).execute()
+    if not rows.data:
+        return clinic_id, clinic  # shouldn't happen; fall back defensively
+    parent = rows.data[0]
+    return parent["id"], parent
 
 
 # ── POST /billing/create-checkout-session ─────────────────────────────────────
 
+class CheckoutRequest(BaseModel):
+    plan: Literal["pro", "enterprise"] = "pro"
+
+
 @router.post("/create-checkout-session")
 def create_checkout_session(
+    body: CheckoutRequest = CheckoutRequest(),
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
-    Create a Stripe Checkout session for the $49/month Pro plan.
+    Create a Stripe Checkout session for the Pro or Enterprise plan.
 
     1. Validates the caller's Supabase JWT.
     2. Creates (or reuses) a Stripe Customer tied to this clinic.
     3. Returns a Checkout session URL the frontend redirects to.
     """
-    clinic_id, clinic = resolve_clinic(authorization)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
+
+    price_id = _PRICE_IDS[body.plan]
 
     if not stripe.api_key:
         raise HTTPException(status_code=500, detail="STRIPE_SECRET_KEY not configured")
-    if not _PRICE_ID:
-        raise HTTPException(status_code=500, detail="STRIPE_PRICE_ID not configured")
+    if not price_id:
+        raise HTTPException(status_code=500, detail=f"Stripe price not configured for plan '{body.plan}'")
 
     # Reuse an existing Stripe customer if we already have one
     customer_id: str | None = clinic.get("stripe_customer_id")
@@ -72,11 +105,11 @@ def create_checkout_session(
     session = stripe.checkout.Session.create(
         customer=customer_id,
         payment_method_types=["card"],
-        line_items=[{"price": _PRICE_ID, "quantity": 1}],
+        line_items=[{"price": price_id, "quantity": 1}],
         mode="subscription",
         success_url=f"{_APP_URL}/dashboard?billing=success",
         cancel_url=f"{_APP_URL}/dashboard?billing=cancelled",
-        metadata={"clinic_id": clinic_id},
+        metadata={"clinic_id": clinic_id, "plan": body.plan},
     )
 
     return {"url": session.url, "session_id": session.id}
@@ -146,11 +179,14 @@ async def stripe_webhook(request: Request):
 def _handle_checkout_completed(db, session: dict):
     """
     checkout.session.completed — the customer just paid.
-    Upgrade the clinic to Pro and record the Stripe IDs.
+    Upgrade the clinic to whichever plan they checked out for and record
+    the Stripe IDs.
     """
     customer_id     = session.get("customer")
     subscription_id = session.get("subscription")
-    clinic_id       = (session.get("metadata") or {}).get("clinic_id")
+    metadata        = session.get("metadata") or {}
+    clinic_id       = metadata.get("clinic_id")
+    tier            = metadata.get("plan") if metadata.get("plan") in ("pro", "enterprise") else "pro"
 
     if not clinic_id:
         # Fall back to looking up by customer ID if metadata is missing.
@@ -172,7 +208,7 @@ def _handle_checkout_completed(db, session: dict):
     db.table("clinics").update({
         "stripe_customer_id":    customer_id,
         "stripe_subscription_id": subscription_id,
-        "tier":                  "pro",
+        "tier":                  tier,
         "subscription_status":   "active",
     }).eq("id", clinic_id).execute()
 
@@ -225,6 +261,7 @@ def _handle_payment_failed(db, invoice: dict):
 @router.post("/create-portal-session")
 def create_portal_session(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
     Create a Stripe Billing Portal session so the customer can manage their
@@ -232,7 +269,7 @@ def create_portal_session(
 
     Returns a one-time URL that expires after a few minutes.
     """
-    clinic_id, clinic = resolve_clinic(authorization)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
 
     customer_id: str | None = clinic.get("stripe_customer_id")
     if not customer_id:
@@ -254,13 +291,16 @@ def create_portal_session(
 @router.get("/subscription")
 def get_subscription(
     authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
 ):
     """
     Return the current billing / subscription status for the authenticated clinic.
+    If the caller's active clinic is a location, this reflects its PARENT's
+    billing state -- locations don't have their own subscription.
 
     Response fields
     ---------------
-    clinic_id                — UUID of the clinic
+    clinic_id                — UUID of the clinic (the parent's, if a location is active)
     tier                      — 'starter' | 'pro' | 'enterprise'
     subscription_status       — 'inactive' | 'active' | 'past_due' | 'cancelled'
     stripe_customer_id        — Stripe customer ID (or None)
@@ -268,7 +308,7 @@ def get_subscription(
     appointments_this_month   — Starter only; None for pro/enterprise (unlimited)
     monthly_limit             — Starter only; None for pro/enterprise (unlimited)
     """
-    clinic_id, clinic = resolve_clinic(authorization)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
     tier = clinic.get("tier", "starter")
     is_starter = tier == "starter"
 

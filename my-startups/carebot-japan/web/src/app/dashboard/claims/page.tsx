@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useClinicContext } from "@/contexts/ClinicContext";
 
 interface Claim {
   id: string;
@@ -44,6 +45,7 @@ const STATUS_LABEL_KEYS = {
 
 export default function ClaimsPage() {
   const { t, lang } = useLanguage();
+  const { activeClinicId } = useClinicContext();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export default function ClaimsPage() {
 
   async function authHeader() {
     const { data: { session } } = await supabase.auth.getSession();
-    return session ? { Authorization: `Bearer ${session.access_token}` } : null;
+    return session ? { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" } : null;
   }
 
   async function loadClaims() {
@@ -94,7 +96,7 @@ export default function ClaimsPage() {
     }
   }
 
-  useEffect(() => { loadClaims(); }, []);
+  useEffect(() => { loadClaims(); }, [activeClinicId]);
 
   async function createClaim() {
     setCreating(true);
