@@ -189,9 +189,10 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-white border-b border-gray-100">
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 shadow-sm" />
             <span className="font-semibold text-teal-800">CareBot Japan</span>
           </div>
           <div className="flex items-center gap-3">
@@ -218,34 +219,45 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="max-w-5xl mx-auto px-6 pt-20 pb-24 text-center">
-        <span className="inline-block text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full mb-6">
-          {c.hero_tag}
-        </span>
-        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6 whitespace-pre-line">
-          {c.hero_title}
-        </h1>
-        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8 leading-relaxed">
-          {c.hero_sub}
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link
-            href="/signup"
-            className="px-7 py-3 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-800 transition-colors shadow-sm"
-          >
-            {c.hero_cta}
-          </Link>
-          <Link
-            href="/login"
-            className="px-7 py-3 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:border-teal-400 transition-colors"
-          >
-            {c.nav_signin}
-          </Link>
-        </div>
-        <p className="mt-3 text-xs text-gray-400">{c.hero_sub_cta}</p>
+      <section className="relative overflow-hidden">
+        {/* Decorative gradient backdrop */}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-teal-50 via-white to-white" />
+        <div className="absolute -top-24 -left-24 -z-10 w-96 h-96 rounded-full bg-teal-200/40 blur-3xl" />
+        <div className="absolute -top-10 right-0 -z-10 w-80 h-80 rounded-full bg-teal-100/50 blur-3xl" />
 
-        {/* Mock dashboard preview */}
-        <div className="mt-14 bg-gray-50 border border-gray-200 rounded-2xl p-6 text-left shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 pt-20 pb-24 text-center">
+          <span className="inline-block text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full mb-6 shadow-sm">
+            {c.hero_tag}
+          </span>
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6 whitespace-pre-line">
+            {c.hero_title.split("\n").map((line, i) => (
+              <span key={i} className={i === 1 ? "bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent" : undefined}>
+                {line}
+                {i === 0 && <br />}
+              </span>
+            ))}
+          </h1>
+          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8 leading-relaxed">
+            {c.hero_sub}
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/signup"
+              className="px-7 py-3 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-800 transition-all hover:shadow-lg hover:shadow-teal-800/20 hover:-translate-y-0.5 shadow-sm"
+            >
+              {c.hero_cta}
+            </Link>
+            <Link
+              href="/login"
+              className="px-7 py-3 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:border-teal-400 hover:bg-teal-50/50 transition-colors"
+            >
+              {c.nav_signin}
+            </Link>
+          </div>
+          <p className="mt-3 text-xs text-gray-400">{c.hero_sub_cta}</p>
+
+          {/* Mock dashboard preview */}
+          <div className="mt-14 bg-gray-50 border border-gray-200 rounded-2xl p-6 text-left shadow-xl shadow-teal-900/5 ring-1 ring-black/5">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
@@ -287,6 +299,7 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+          </div>
         </div>
       </section>
 
@@ -294,10 +307,12 @@ export default function LandingPage() {
       <section className="bg-gray-50 border-y border-gray-100 py-20">
         <div className="max-w-5xl mx-auto px-6">
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-12">{c.how_title}</h2>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3 relative">
+            {/* Connecting line behind the steps, desktop only */}
+            <div className="hidden md:block absolute top-[18px] left-[8%] right-[8%] h-px bg-gradient-to-r from-teal-200 via-teal-300 to-teal-200" />
             {c.how_steps.map((step) => (
-              <div key={step.n} className="flex flex-col">
-                <div className="w-9 h-9 rounded-full bg-teal-700 text-white text-sm font-bold flex items-center justify-center mb-4">
+              <div key={step.n} className="flex flex-col relative">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-600 to-teal-800 text-white text-sm font-bold flex items-center justify-center mb-4 shadow-md shadow-teal-800/20 ring-4 ring-gray-50">
                   {step.n}
                 </div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2">{step.title}</h3>
@@ -314,8 +329,13 @@ export default function LandingPage() {
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-12">{c.features_title}</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {c.features.map((f) => (
-              <div key={f.title} className="bg-gray-50 rounded-2xl border border-gray-100 p-6">
-                <span className="text-2xl mb-3 block">{f.icon}</span>
+              <div
+                key={f.title}
+                className="bg-gray-50 rounded-2xl border border-gray-100 p-6 transition-all hover:border-teal-200 hover:shadow-md hover:shadow-teal-900/5 hover:-translate-y-0.5"
+              >
+                <span className="w-11 h-11 rounded-xl bg-white border border-gray-100 shadow-sm text-xl mb-4 flex items-center justify-center">
+                  {f.icon}
+                </span>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1.5">{f.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{f.sub}</p>
               </div>
@@ -333,7 +353,7 @@ export default function LandingPage() {
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 max-w-2xl mx-auto">
             {/* Starter */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col">
+            <div className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col transition-shadow hover:shadow-md hover:shadow-gray-900/5">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
                 {c.plan_starter}
               </p>
@@ -354,8 +374,8 @@ export default function LandingPage() {
             </div>
 
             {/* Pro */}
-            <div className="bg-teal-800 rounded-2xl p-7 flex flex-col relative">
-              <span className="absolute top-5 right-5 text-xs bg-white text-teal-800 font-semibold px-2.5 py-1 rounded-full">
+            <div className="bg-gradient-to-br from-teal-700 to-teal-900 rounded-2xl p-7 flex flex-col relative shadow-xl shadow-teal-900/20 ring-1 ring-teal-900/10">
+              <span className="absolute top-5 right-5 text-xs bg-white text-teal-800 font-semibold px-2.5 py-1 rounded-full shadow-sm">
                 {c.popular}
               </span>
               <p className="text-xs font-semibold text-teal-400 uppercase tracking-widest mb-4">
@@ -384,13 +404,15 @@ export default function LandingPage() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="py-20">
+      <section className="relative overflow-hidden py-20">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-teal-700 to-teal-900" />
+        <div className="absolute -bottom-32 -right-16 -z-10 w-96 h-96 rounded-full bg-teal-500/20 blur-3xl" />
         <div className="max-w-xl mx-auto px-6 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">{c.bottom_title}</h2>
-          <p className="text-sm text-gray-500 mb-8">{c.bottom_sub}</p>
+          <h2 className="text-2xl font-bold text-white mb-3">{c.bottom_title}</h2>
+          <p className="text-sm text-teal-200 mb-8">{c.bottom_sub}</p>
           <Link
             href="/signup"
-            className="inline-block px-8 py-3 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-800 transition-colors shadow-sm"
+            className="inline-block px-8 py-3 bg-white text-teal-800 text-sm font-semibold rounded-xl hover:bg-teal-50 transition-all hover:shadow-lg hover:-translate-y-0.5 shadow-lg shadow-teal-900/30"
           >
             {c.bottom_cta}
           </Link>
