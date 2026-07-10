@@ -64,8 +64,8 @@ const copy = {
     plan_pro: "Pro",
     plan_enterprise: "Enterprise",
     price_free: "Free",
-    price_pro: "$49",
-    price_enterprise: "$99",
+    price_pro: "¥7,500",
+    price_enterprise: "¥15,000",
     price_mo: "/ month",
     starter_features: [
       "Up to 50 appointments / month",
@@ -163,8 +163,8 @@ const copy = {
     plan_pro: "プロ",
     plan_enterprise: "エンタープライズ",
     price_free: "無料",
-    price_pro: "$49",
-    price_enterprise: "$99",
+    price_pro: "¥7,500",
+    price_enterprise: "¥15,000",
     price_mo: " / 月",
     starter_features: [
       "月50件まで予約",
