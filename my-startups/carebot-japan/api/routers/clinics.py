@@ -2,18 +2,20 @@
 Public and authenticated clinic info endpoints.
 
 GET  /clinics/by-slug/{slug}  — public, returns clinic name + ID for booking form
+POST /clinics/onboard         — authenticated, creates a new clinic + owner membership (one-time)
 GET  /clinics/me              — authenticated, returns current user's clinic + slug
 GET  /clinics/locations       — authenticated, lists every clinic the caller can access
 POST /clinics/locations       — authenticated, Enterprise-only, creates a new location
 """
 
 import re
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from pydantic import BaseModel
 from typing import Annotated
 
 from services.db import get_db
 from services.auth import resolve_clinic, _get_authenticated_user_id, _get_clinics_for_user
+from services.limiter import limiter
 
 router = APIRouter()
 
@@ -47,7 +49,8 @@ def unique_slug(db, base: str) -> str:
 # ── GET /clinics/by-slug/{slug} ───────────────────────────────────────────────
 
 @router.get("/by-slug/{slug}")
-def get_clinic_by_slug(slug: str):
+@limiter.limit("60/minute")
+def get_clinic_by_slug(request: Request, slug: str):
     """
     Public endpoint — called by the patient booking form to resolve
     a slug to a clinic ID and display name.
@@ -60,6 +63,90 @@ def get_clinic_by_slug(slug: str):
     return {
         "clinic_id": row["id"],
         "name": row["name"],
+    }
+
+
+# ── POST /clinics/onboard ─────────────────────────────────────────────────────
+
+class OnboardRequest(BaseModel):
+    name: str
+    line_channel_id: str | None = None
+    phone: str | None = None
+
+
+@router.post("/onboard")
+def onboard_clinic(
+    body: OnboardRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """
+    Create a new clinic and add the caller as its owner.
+
+    Called once, right after signup, from the onboarding form. This replaces
+    what used to be two separate client-side Supabase inserts (clinics, then
+    clinic_users) made with the anon-key client -- that was neither atomic
+    (a failure between the two left an orphaned clinic with no owner) nor
+    architecturally sound (tenant-membership writes must never be a
+    client-trusted operation). Both inserts now happen here, server-side,
+    via the service-role DB client.
+
+    A user who already belongs to a clinic gets a 409 -- onboarding is a
+    one-time bootstrap, not a way to spin up additional clinics (see
+    POST /clinics/locations, Enterprise-only, for that).
+    """
+    user_id = _get_authenticated_user_id(authorization)
+
+    # _get_clinics_for_user raises 404 (not an empty list) when the user has
+    # no clinic yet -- that's the expected, non-error path for a fresh
+    # signup going through onboarding for the first time, so swallow it.
+    try:
+        existing = _get_clinics_for_user(user_id)
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            existing = []
+        else:
+            raise
+
+    if existing:
+        raise HTTPException(status_code=409, detail="This account is already linked to a clinic")
+
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Clinic name is required")
+
+    db = get_db()
+    slug = unique_slug(db, slugify(name))
+
+    clinic_row = {
+        "name": name,
+        "slug": slug,
+        "line_channel_id": (body.line_channel_id or "").strip() or None,
+        "phone": (body.phone or "").strip() or None,
+    }
+    result = db.table("clinics").insert(clinic_row).execute()
+    new_clinic = result.data[0] if result.data else None
+    if not new_clinic:
+        raise HTTPException(status_code=500, detail="Failed to create clinic")
+
+    clinic_id = new_clinic["id"]
+
+    try:
+        db.table("clinic_users").insert({
+            "user_id": user_id,
+            "clinic_id": clinic_id,
+            "role": "owner",
+        }).execute()
+    except Exception:
+        # Compensating rollback -- there's no cross-table transaction
+        # available via the Supabase client, so undo the clinic insert
+        # rather than leave an orphaned clinic with no owner.
+        db.table("clinics").delete().eq("id", clinic_id).execute()
+        raise HTTPException(status_code=500, detail="Failed to link owner to clinic")
+
+    return {
+        "clinic_id": clinic_id,
+        "name": new_clinic.get("name"),
+        "slug": new_clinic.get("slug"),
     }
 
 

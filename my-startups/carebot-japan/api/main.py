@@ -4,15 +4,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 load_dotenv("../../.env.local")  # local dev only; Railway injects vars directly
 
 from routers import webhooks, appointments, queue, claims, billing, clinics, audit
+from services.limiter import limiter
 
 app = FastAPI(
     title="CareBot Japan — Scheduling API",
     description="AI-powered clinic scheduling and claims automation",
     version="0.2.0",
 )
+
+# Rate limiting (per client IP) for the public, unauthenticated endpoints —
+# see services/limiter.py and the @limiter.limit(...) decorators in the
+# individual routers.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 _app_url = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
 _allowed_origins = [_app_url, "http://localhost:3000", "http://127.0.0.1:3000"]

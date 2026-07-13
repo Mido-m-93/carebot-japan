@@ -1,8 +1,9 @@
 ﻿// apps/web/src/app/dashboard/test/page.tsx
 "use client";
 import { useState } from "react";
-import { API_URL, DEMO_CLINIC_ID } from "@/lib/supabase";
+import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useClinicContext } from "@/contexts/ClinicContext";
 
 interface Result {
   status: string;
@@ -19,6 +20,7 @@ interface Result {
 
 export default function TestPage() {
   const { t, lang } = useLanguage();
+  const { activeClinicId } = useClinicContext();
   const [message, setMessage] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,15 +36,20 @@ export default function TestPage() {
   ];
 
   async function send() {
-    if (!message.trim()) return;
+    if (!message.trim() || !activeClinicId) return;
     setLoading(true);
     setResult(null);
     setError(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${API_URL}/webhooks/web`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinic_id: DEMO_CLINIC_ID, message: message.trim(), patient_phone: phone.trim() || null }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          "X-Clinic-Id": activeClinicId,
+        },
+        body: JSON.stringify({ clinic_id: activeClinicId, message: message.trim(), patient_phone: phone.trim() || null }),
       });
       if (!res.ok) {
         const text = await res.text();
@@ -121,7 +128,7 @@ export default function TestPage() {
         </div>
         <button
           onClick={send}
-          disabled={loading || !message.trim()}
+          disabled={loading || !message.trim() || !activeClinicId}
           className="w-full py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-40 transition-colors"
         >
           {loading ? t.test_sending : t.test_send}

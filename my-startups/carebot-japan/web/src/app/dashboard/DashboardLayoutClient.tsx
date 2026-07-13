@@ -34,6 +34,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { lang, toggle, t } = useLanguage();
   const { locations, activeClinicId, setActiveClinicId, loading: clinicLoading } = useClinicContext();
+  const bookingSlug = locations.find((loc) => loc.clinic_id === activeClinicId)?.slug ?? null;
 
   const navItems = [
     { href: "/dashboard", label: t.nav_overview },
@@ -96,16 +97,18 @@ function DashboardShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          <div className="mx-4 mt-3 border-t border-teal-700 pt-3">
-            <Link
-              href="/book"
-              target="_blank"
-              className="flex items-center justify-between px-3 py-2 text-xs text-teal-300 bg-teal-700 rounded-lg hover:bg-teal-600 transition-colors"
-            >
-              <span>{lang === "ja" ? "予約フォームを開く" : "Patient Booking Form"}</span>
-              <span className="text-teal-400">↗</span>
-            </Link>
-          </div>
+          {bookingSlug && (
+            <div className="mx-4 mt-3 border-t border-teal-700 pt-3">
+              <Link
+                href={`/book/${bookingSlug}`}
+                target="_blank"
+                className="flex items-center justify-between px-3 py-2 text-xs text-teal-300 bg-teal-700 rounded-lg hover:bg-teal-600 transition-colors"
+              >
+                <span>{lang === "ja" ? "予約フォームを開く" : "Patient Booking Form"}</span>
+                <span className="text-teal-400">↗</span>
+              </Link>
+            </div>
+          )}
         </nav>
         <div className="px-5 py-4 border-t border-teal-600 space-y-2">
           <div className="flex items-center justify-between">

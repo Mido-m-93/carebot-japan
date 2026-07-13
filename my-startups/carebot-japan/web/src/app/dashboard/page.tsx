@@ -131,7 +131,7 @@ export default function DashboardOverviewPage() {
             apiStatus === "ok" ? "bg-teal-500" :
             apiStatus === "down" ? "bg-red-500" : "bg-gray-300"
           }`} />
-          {apiStatus === "ok" ? "API connected" : apiStatus === "down" ? "API offline" : "Checking…"}
+          {apiStatus === "ok" ? t.api_status_connected : apiStatus === "down" ? t.api_status_offline : t.api_status_checking}
         </div>
       </div>
 
@@ -264,10 +264,12 @@ export default function DashboardOverviewPage() {
                 <p className="text-xs text-gray-400 mt-1">{sub}</p>
               </Link>
             ))}
-            <Link href="/book" target="_blank" className="bg-teal-800 border border-teal-700 rounded-xl p-5 hover:bg-teal-700 transition-colors group">
-              <p className="text-sm font-medium text-white">{lang === "ja" ? "予約フォーム" : "Booking Form"}</p>
-              <p className="text-xs text-teal-400 mt-1">{lang === "ja" ? "患者向け予約ページを開く ↗" : "Open patient booking page ↗"}</p>
-            </Link>
+            {bookingSlug && (
+              <Link href={`/book/${bookingSlug}`} target="_blank" className="bg-teal-800 border border-teal-700 rounded-xl p-5 hover:bg-teal-700 transition-colors group">
+                <p className="text-sm font-medium text-white">{lang === "ja" ? "予約フォーム" : "Booking Form"}</p>
+                <p className="text-xs text-teal-400 mt-1">{lang === "ja" ? "患者向け予約ページを開く ↗" : "Open patient booking page ↗"}</p>
+              </Link>
+            )}
           </div>
         </>
       )}

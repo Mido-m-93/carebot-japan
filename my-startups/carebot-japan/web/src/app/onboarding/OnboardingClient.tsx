@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase, API_URL } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const copy = {
@@ -83,39 +83,27 @@ export default function OnboardingClient() {
         return;
       }
 
-      // 1. Insert clinic into Supabase
-      const slug = clinicName.trim()
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/[\s_]+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "") || "clinic";
-
-      const { data: clinic, error: clinicError } = await supabase
-        .from("clinics")
-        .insert({
+      // 1. Create the clinic and link this user as its owner, atomically,
+      // via the authenticated backend (never a client-trusted write).
+      const onboardRes = await fetch(`${API_URL}/clinics/onboard`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
           name: clinicName.trim(),
-          slug,
           line_channel_id: lineChannelId.trim() || null,
           phone: phone.trim() || null,
-        })
-        .select("id")
-        .single();
+        }),
+      });
 
-      if (clinicError) throw clinicError;
+      if (!onboardRes.ok) {
+        const body = await onboardRes.json().catch(() => ({}));
+        throw new Error(body?.detail ?? body?.message ?? "API error");
+      }
 
-      // 2. Link user to clinic as owner
-      const { error: linkError } = await supabase
-        .from("clinic_users")
-        .insert({
-          user_id: session.user.id,
-          clinic_id: clinic.id,
-          role: "owner",
-        });
-
-      if (linkError) throw linkError;
-
-      // 3. Create Stripe Checkout session
+      // 2. Create Stripe Checkout session
       const res = await fetch("/api-proxy/billing/create-checkout-session", {
         method: "POST",
         headers: {

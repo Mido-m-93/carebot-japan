@@ -61,7 +61,6 @@ export const translations = {
     nav_test: "Test Message",
     nav_billing: "Billing",
     nav_signout: "Sign out",
-    nav_clinic: "Shinjuku Demo Clinic",
 
     // Common
     loading: "Loading...",
@@ -69,6 +68,11 @@ export const translations = {
     no_data: "—",
     items_count: (n: number) => `${n} items`,
     items_pending: (n: number) => `${n} pending`,
+
+    // API status pill (dashboard overview)
+    api_status_connected: "API connected",
+    api_status_offline: "API offline",
+    api_status_checking: "Checking…",
 
     // Overview page
     overview_title: "Overview",
@@ -112,6 +116,7 @@ export const translations = {
     appts_title: "Appointments",
     appts_empty: "No appointments",
     appts_empty_sub: "Send a message from the Test Message page",
+    appts_booked_at: "Booked",
 
     // Review queue page
     review_title: "Review Queue",
@@ -135,6 +140,14 @@ export const translations = {
     review_auto_subtitle: "These were auto-confirmed by AI. Spot-check for accuracy.",
     items_flagged: (n: number) => `${n} to check`,
     review_mark_reviewed: "Mark Reviewed",
+    review_intent_label: "Intent:",
+    review_error_not_signed_in: "Not signed in",
+    review_error_conflict: (detail: string) => `Conflict: ${detail}`,
+    review_error_failed: (detail: string) => `Failed to resolve: ${detail}`,
+    review_error_network: (detail: string) => `Network error: ${detail}`,
+    review_error_next_available: (alts: string) => `Next available: ${alts}. Please update the time and try again.`,
+    review_no_alternatives: "none",
+    review_unknown_error: "Unknown error",
 
     // Test page
     test_title: "Test Message",
@@ -196,12 +209,12 @@ export const translations = {
     claims_ai_warning: (n: number) => `${n} flag${n === 1 ? "" : "s"}`,
     claims_ai_review_title: "AI Review",
     claims_approval_rate: (pct: number) => `Estimated approval rate: ${pct}%`,
-    claims_submitted_label: "Submitted",
+    claims_submitted_label: "AI Reviewed",
     claims_approved_label: "Approved",
-    claims_submitting: "Submitting...",
-    claims_submit_ai: "Submit (AI Review)",
+    claims_submitting: "Running AI review...",
+    claims_submit_ai: "Run AI Review",
     claims_status_draft: "Draft",
-    claims_status_submitted: "Submitted",
+    claims_status_submitted: "AI Reviewed",
     claims_status_under_review: "Under Review",
     claims_status_approved: "Approved",
     claims_status_rejected: "Rejected",
@@ -305,14 +318,18 @@ export const translations = {
     nav_test: "テスト送信",
     nav_billing: "お支払い",
     nav_signout: "ログアウト",
-    nav_clinic: "新宿デモクリニック",
 
     // Common
     loading: "読み込み中...",
     unknown: "不明",
     no_data: "—",
     items_count: (n: number) => `${n}件`,
-    items_pending: (n: number) => `${n}件 pending`,
+    items_pending: (n: number) => `${n}件保留中`,
+
+    // API status pill (dashboard overview)
+    api_status_connected: "API接続済み",
+    api_status_offline: "APIオフライン",
+    api_status_checking: "確認中…",
 
     // Overview page
     overview_title: "概要",
@@ -356,6 +373,7 @@ export const translations = {
     appts_title: "予約一覧",
     appts_empty: "予約がありません",
     appts_empty_sub: "テスト送信ページからメッセージを送信してください",
+    appts_booked_at: "登録日時",
 
     // Review queue page
     review_title: "要確認キュー",
@@ -379,6 +397,14 @@ export const translations = {
     review_auto_subtitle: "AIが自動確定した予約です。内容に問題ないかご確認ください。",
     items_flagged: (n: number) => `${n}件 確認待ち`,
     review_mark_reviewed: "確認済みにする",
+    review_intent_label: "インテント:",
+    review_error_not_signed_in: "サインインしていません",
+    review_error_conflict: (detail: string) => `競合が発生しました: ${detail}`,
+    review_error_failed: (detail: string) => `解決に失敗しました: ${detail}`,
+    review_error_network: (detail: string) => `ネットワークエラー: ${detail}`,
+    review_error_next_available: (alts: string) => `次の空き時間: ${alts}。時間を変更して再度お試しください。`,
+    review_no_alternatives: "なし",
+    review_unknown_error: "不明なエラー",
 
     // Test page
     test_title: "テスト送信",
@@ -440,12 +466,12 @@ export const translations = {
     claims_ai_warning: (n: number) => `${n}件のフラグ`,
     claims_ai_review_title: "AI審査",
     claims_approval_rate: (pct: number) => `承認率の見込み: ${pct}%`,
-    claims_submitted_label: "申請日",
+    claims_submitted_label: "AI審査日",
     claims_approved_label: "承認額",
-    claims_submitting: "申請中...",
-    claims_submit_ai: "申請する（AI審査）",
+    claims_submitting: "AI審査中...",
+    claims_submit_ai: "AI審査を実行",
     claims_status_draft: "下書き",
-    claims_status_submitted: "申請済",
+    claims_status_submitted: "AI審査済み",
     claims_status_under_review: "審査中",
     claims_status_approved: "承認",
     claims_status_rejected: "却下",
