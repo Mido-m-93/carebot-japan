@@ -2,15 +2,16 @@
 """
 Stripe billing endpoints.
 
-POST /billing/create-checkout-session — start a Pro ($49/mo) or Enterprise ($99/mo) checkout
+POST /billing/create-checkout-session — start a Pro (¥7,500/mo) or Enterprise (¥15,000/mo) checkout
 POST /billing/webhook                 — Stripe signed webhook (raw body required)
 GET  /billing/subscription            — current subscription status for the caller's clinic
+GET  /billing/plans                   — public plan pricing, read live from Stripe (unauthenticated)
 
 Required environment variables:
     STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
     STRIPE_WEBHOOK_SECRET      — Stripe webhook signing secret (whsec_...)
-    STRIPE_PRICE_ID            — Stripe Price ID for the $49/month Pro plan (price_...)
-    STRIPE_ENTERPRISE_PRICE_ID — Stripe Price ID for the $99/month Enterprise plan (price_...)
+    STRIPE_PRICE_ID            — Stripe Price ID for the ¥7,500/month Pro plan (price_...)
+    STRIPE_ENTERPRISE_PRICE_ID — Stripe Price ID for the ¥15,000/month Enterprise plan (price_...)
     NEXT_PUBLIC_APP_URL        — frontend URL used for success/cancel redirects
 """
 
@@ -90,27 +91,38 @@ def create_checkout_session(
     # Reuse an existing Stripe customer if we already have one
     customer_id: str | None = clinic.get("stripe_customer_id")
 
-    if not customer_id:
-        customer = stripe.Customer.create(
-            name=clinic.get("name", ""),
-            metadata={"clinic_id": clinic_id},
+    try:
+        if not customer_id:
+            # idempotency_key ties this creation to the clinic itself, so two
+            # concurrent requests that both see stripe_customer_id as null
+            # (e.g. a double-click, or a retry racing the original request)
+            # are deduped by Stripe into the same Customer object instead of
+            # creating two orphaned customers for one clinic.
+            customer = stripe.Customer.create(
+                name=clinic.get("name", ""),
+                metadata={"clinic_id": clinic_id},
+                idempotency_key=f"clinic-customer-{clinic_id}",
+            )
+            customer_id = customer.id
+
+            # Persist immediately so we don't create duplicates on retries
+            get_db().table("clinics").update(
+                {"stripe_customer_id": customer_id}
+            ).eq("id", clinic_id).execute()
+
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            mode="subscription",
+            success_url=f"{_APP_URL}/dashboard?billing=success",
+            cancel_url=f"{_APP_URL}/dashboard?billing=cancelled",
+            metadata={"clinic_id": clinic_id, "plan": body.plan},
         )
-        customer_id = customer.id
-
-        # Persist immediately so we don't create duplicates on retries
-        get_db().table("clinics").update(
-            {"stripe_customer_id": customer_id}
-        ).eq("id", clinic_id).execute()
-
-    session = stripe.checkout.Session.create(
-        customer=customer_id,
-        payment_method_types=["card"],
-        line_items=[{"price": price_id, "quantity": 1}],
-        mode="subscription",
-        success_url=f"{_APP_URL}/dashboard?billing=success",
-        cancel_url=f"{_APP_URL}/dashboard?billing=cancelled",
-        metadata={"clinic_id": clinic_id, "plan": body.plan},
-    )
+    except stripe.StripeError as exc:
+        raise HTTPException(
+            status_code=502, detail="Payment system temporarily unavailable, please try again"
+        ) from exc
 
     return {"url": session.url, "session_id": session.id}
 
@@ -278,10 +290,15 @@ def create_portal_session(
     if not stripe.api_key:
         raise HTTPException(status_code=500, detail="STRIPE_SECRET_KEY not configured")
 
-    session = stripe.billing_portal.Session.create(
-        customer=customer_id,
-        return_url=f"{_APP_URL}/dashboard/billing",
-    )
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{_APP_URL}/dashboard/billing",
+        )
+    except stripe.StripeError as exc:
+        raise HTTPException(
+            status_code=502, detail="Payment system temporarily unavailable, please try again"
+        ) from exc
 
     return {"url": session.url}
 
@@ -321,3 +338,45 @@ def get_subscription(
         "appointments_this_month": appointments_this_month(clinic_id) if is_starter else None,
         "monthly_limit":           STARTER_MONTHLY_LIMIT if is_starter else None,
     }
+
+
+# ── GET /billing/plans ────────────────────────────────────────────────────────
+
+@router.get("/plans")
+def get_plans():
+    """
+    Public plan pricing, read live from Stripe.  Unauthenticated -- this is
+    the same pricing shown to anonymous visitors on the marketing site, and
+    keeping it live means the frontend never has to hardcode a yen amount
+    that can silently drift out of sync with the actual configured Stripe
+    Price (which is what happened before this endpoint existed).
+
+    Note on currency formatting: JPY is a zero-decimal currency in Stripe, so
+    `unit_amount` is already the whole yen amount (e.g. 7500 means literally
+    ¥7,500) -- unlike USD/EUR/etc. where unit_amount is in cents. Do not
+    divide by 100 when displaying this value.
+    See: https://stripe.com/docs/currencies#zero-decimal
+
+    Response
+    --------
+    {
+      "pro":        {"unit_amount": 7500, "currency": "jpy"} | null,
+      "enterprise": {"unit_amount": 15000, "currency": "jpy"} | null,
+    }
+    A null value means that plan's price could not be resolved (unset env
+    var, misconfigured Stripe key, or a transient Stripe error) -- callers
+    should fall back to their own hardcoded copy in that case.
+    """
+    plans: dict[str, dict | None] = {}
+
+    for plan, price_id in _PRICE_IDS.items():
+        if not stripe.api_key or not price_id:
+            plans[plan] = None
+            continue
+        try:
+            price = stripe.Price.retrieve(price_id)
+            plans[plan] = {"unit_amount": price["unit_amount"], "currency": price["currency"]}
+        except stripe.StripeError:
+            plans[plan] = None
+
+    return plans

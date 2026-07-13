@@ -18,12 +18,42 @@ import base64
 import re
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from pydantic import BaseModel
+from services.db import get_db
 from services.scheduling import process_message
 from services.email import send_appointment_confirmation
 from services.line import send_line_reply
 from services.ai import generate_confirmation
+from services.limiter import limiter
 
 router = APIRouter()
+
+
+def _resolve_clinic_by_line_channel(channel_id: str) -> str | None:
+    """
+    Look up the clinic whose `line_channel_id` matches the LINE bot channel
+    that received this webhook (LINE's `destination` field). Returns None if
+    no clinic is registered for it -- callers must NOT fall back to a default
+    clinic in that case.
+    """
+    if not channel_id:
+        return None
+    db = get_db()
+    rows = db.table("clinics").select("id").eq("line_channel_id", channel_id).limit(1).execute()
+    return rows.data[0]["id"] if rows.data else None
+
+
+def _resolve_clinic_by_inbound_email(address: str) -> str | None:
+    """
+    Look up the clinic whose `inbound_email` matches the Mailgun recipient
+    address this message was sent to. Returns None if no clinic is
+    registered for it -- callers must NOT fall back to a default clinic.
+    """
+    if not address:
+        return None
+    db = get_db()
+    rows = db.table("clinics").select("id").eq("inbound_email", address.lower()).limit(1).execute()
+    return rows.data[0]["id"] if rows.data else None
+
 
 # ── Line webhook ──────────────────────────────────────────────
 
@@ -105,6 +135,19 @@ async def line_webhook(request: Request, background_tasks: BackgroundTasks):
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
+    # All events in a single Line webhook call originate from the same bot
+    # channel, identified by `destination` (the bot's own channel/user ID).
+    # Resolve the clinic once for the whole payload.
+    destination = payload.get("destination", "")
+    clinic_id = _resolve_clinic_by_line_channel(destination)
+    if not clinic_id:
+        event_count = len(payload.get("events", []))
+        print(
+            f"[webhooks] No clinic registered for Line channel destination={destination!r} "
+            f"— skipping {event_count} event(s) instead of misattributing them"
+        )
+        return {"status": "ok"}
+
     for event in payload.get("events", []):
         if event.get("type") != "message":
             continue
@@ -113,8 +156,6 @@ async def line_webhook(request: Request, background_tasks: BackgroundTasks):
 
         text = event["message"]["text"]
         user_id = event.get("source", {}).get("userId", "")
-        # In MVP we use the demo clinic. Production: resolve from Line channel ID.
-        clinic_id = "00000000-0000-0000-0000-000000000001"
 
         # Process in background so we return 200 immediately to Line
         background_tasks.add_task(_process_line_and_reply, clinic_id, text, user_id)
@@ -131,10 +172,15 @@ class WebBookingRequest(BaseModel):
 
 
 @router.post("/web")
-async def web_booking(payload: WebBookingRequest):
+@limiter.limit("10/minute")
+async def web_booking(request: Request, payload: WebBookingRequest):
     """
     Direct booking from the clinic's web widget or the dashboard test form.
     Processes synchronously and returns the result immediately.
+
+    Unauthenticated and public, and every call triggers paid LLM calls
+    (see services/ai.py), so it's rate limited per-IP to keep a scripted
+    flood from running up the AI bill.
     """
     result = process_message(
         clinic_id=payload.clinic_id,
@@ -146,9 +192,6 @@ async def web_booking(payload: WebBookingRequest):
 
 
 # ── Inbound email webhook (Mailgun) ───────────────────────────
-
-DEMO_CLINIC_ID = "00000000-0000-0000-0000-000000000001"
-
 
 def _extract_email(raw: str) -> str:
     """Extract plain email from 'Name <email@example.com>' format."""
@@ -209,17 +252,29 @@ async def email_webhook(request: Request, background_tasks: BackgroundTasks):
     ):
         raise HTTPException(status_code=403, detail="Invalid Mailgun signature")
 
-    from_raw   = str(form.get("From") or form.get("from") or "")
-    sender     = str(form.get("sender") or "")
-    subject    = str(form.get("subject") or form.get("Subject") or "")
-    body_plain = str(form.get("body-plain") or "")
-    body_html  = str(form.get("stripped-text") or form.get("body-plain") or "")
+    from_raw    = str(form.get("From") or form.get("from") or "")
+    sender      = str(form.get("sender") or "")
+    recipient_raw = str(form.get("recipient") or form.get("To") or form.get("to") or "")
+    subject     = str(form.get("subject") or form.get("Subject") or "")
+    body_plain  = str(form.get("body-plain") or "")
+    body_html   = str(form.get("stripped-text") or form.get("body-plain") or "")
 
     patient_email = _extract_email(from_raw) or sender
+    recipient_email = _extract_email(recipient_raw)
     body = body_plain or body_html
 
     if not patient_email or not body.strip():
         return {"status": "ignored", "reason": "no sender or empty body"}
+
+    # Resolve which clinic this message was sent to via the recipient
+    # address. Never fall back to a default clinic on a miss — log and skip.
+    clinic_id = _resolve_clinic_by_inbound_email(recipient_email)
+    if not clinic_id:
+        print(
+            f"[webhooks] No clinic registered for inbound email recipient={recipient_email!r} "
+            f"— skipping message from {patient_email!r} instead of misattributing it"
+        )
+        return {"status": "ignored", "reason": "no clinic registered for recipient address"}
 
     # Build message text for the AI pipeline
     message_text = f"Subject: {subject}\n\n{body.strip()}" if subject else body.strip()
@@ -230,7 +285,7 @@ async def email_webhook(request: Request, background_tasks: BackgroundTasks):
 
     def process_and_reply():
         result = process_message(
-            clinic_id=DEMO_CLINIC_ID,
+            clinic_id=clinic_id,
             raw_message=message_text,
             source="email",
             patient_phone=None,

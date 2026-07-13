@@ -152,7 +152,7 @@ export default function AppointmentsPage() {
                   </td>
                   <td className="px-5 py-3">
                     <p className="text-gray-600">{formatDateTime(appt.scheduled_at)}</p>
-                    <p className="text-xs text-gray-300 mt-0.5">Booked {formatDate(appt.created_at)}</p>
+                    <p className="text-xs text-gray-300 mt-0.5">{t.appts_booked_at} {formatDate(appt.created_at)}</p>
                   </td>
                   <td className="px-5 py-3 text-gray-600 max-w-xs truncate">
                     {appt.visit_reason ?? <span className="text-gray-300">—</span>}

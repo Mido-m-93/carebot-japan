@@ -1,6 +1,8 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { fetchPlans, formatPlanPrice, type PlansResponse } from "@/lib/plans";
 
 const copy = {
   en: {
@@ -139,6 +141,17 @@ export default function PricingPage() {
   const { lang } = useLanguage();
   const c = copy[lang] ?? copy.en;
 
+  // Live pricing from Stripe, falling back to the hardcoded copy above if
+  // the endpoint is unreachable or a price can't be resolved -- keeps this
+  // page from breaking if /billing/plans errors.
+  const [plans, setPlans] = useState<PlansResponse>({ pro: null, enterprise: null });
+  useEffect(() => {
+    fetchPlans().then(setPlans);
+  }, []);
+  const locale = lang === "ja" ? "ja-JP" : "en-US";
+  const proPrice = formatPlanPrice(plans.pro, locale) ?? c.price_pro;
+  const enterprisePrice = formatPlanPrice(plans.enterprise, locale) ?? c.price_enterprise;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -197,7 +210,7 @@ export default function PricingPage() {
               {c.plan_pro}
             </p>
             <div className="mb-2 flex items-end gap-1">
-              <span className="text-4xl font-bold text-white">{c.price_pro}</span>
+              <span className="text-4xl font-bold text-white">{proPrice}</span>
               <span className="text-teal-300 text-sm mb-1">{c.price_pro_period}</span>
             </div>
             <p className="text-sm text-teal-300 mb-6">{c.desc_pro}</p>
@@ -225,7 +238,7 @@ export default function PricingPage() {
               {c.plan_enterprise}
             </p>
             <div className="mb-2 flex items-end gap-1">
-              <span className="text-4xl font-bold text-gray-900">{c.price_enterprise}</span>
+              <span className="text-4xl font-bold text-gray-900">{enterprisePrice}</span>
               <span className="text-gray-400 text-sm mb-1">{c.price_pro_period}</span>
             </div>
             <p className="text-sm text-gray-500 mb-6">{c.desc_enterprise}</p>

@@ -90,7 +90,7 @@ export default function ReviewQueuePage() {
     };
     try {
       const headers = await authHeader();
-      if (!headers) { setResolveError("Not signed in"); setResolving(null); return; }
+      if (!headers) { setResolveError(t.review_error_not_signed_in); setResolving(null); return; }
       const res = await fetch(`${API_URL}/queue/${item.id}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
@@ -99,23 +99,23 @@ export default function ReviewQueuePage() {
       if (res.status === 409) {
         const body = await res.json().catch(() => ({}));
         if (body.detail?.error === "slot_taken") {
-          const alts = body.detail.next_available?.join(", ") || "none";
+          const alts = body.detail.next_available?.join(", ") || t.review_no_alternatives;
           setResolveError(
-            `⚠ ${body.detail.message} Next available: ${alts}. Please update the time and try again.`
+            `⚠ ${body.detail.message} ${t.review_error_next_available(alts)}`
           );
         } else if (body.detail?.error === "clinic_closed") {
           setResolveError(`⚠ ${body.detail.message}`);
         } else {
-          setResolveError(`Conflict: ${JSON.stringify(body.detail)}`);
+          setResolveError(t.review_error_conflict(JSON.stringify(body.detail)));
         }
       } else if (!res.ok) {
-        const text = await res.text().catch(() => "Unknown error");
-        setResolveError(`Failed to resolve: ${text}`);
+        const text = await res.text().catch(() => t.review_unknown_error);
+        setResolveError(t.review_error_failed(text));
       } else {
         await load();
       }
     } catch (err) {
-      setResolveError(`Network error: ${err instanceof Error ? err.message : String(err)}`);
+      setResolveError(t.review_error_network(err instanceof Error ? err.message : String(err)));
     } finally {
       setResolving(null);
     }
@@ -176,7 +176,7 @@ export default function ReviewQueuePage() {
                 <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
                   {item.source.toUpperCase()}
                 </span>
-                <span className="text-xs text-gray-500">Intent: {item.intent ?? "unknown"}</span>
+                <span className="text-xs text-gray-500">{t.review_intent_label} {item.intent ?? t.unknown}</span>
                 <ConfidenceBadge value={item.intent_confidence} />
                 <span className="text-xs text-gray-400 ml-auto">
                   {new Date(item.created_at).toLocaleString(lang === "ja" ? "ja-JP" : "en-US", {
@@ -265,7 +265,7 @@ export default function ReviewQueuePage() {
                     <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                       {item.source.toUpperCase()}
                     </span>
-                    <span className="text-xs text-gray-500">Intent: {item.intent ?? "unknown"}</span>
+                    <span className="text-xs text-gray-500">{t.review_intent_label} {item.intent ?? t.unknown}</span>
                     <ConfidenceBadge value={item.intent_confidence} />
                     <span className="text-xs text-gray-400 ml-auto">
                       {new Date(item.created_at).toLocaleString(lang === "ja" ? "ja-JP" : "en-US", {

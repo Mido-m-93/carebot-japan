@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase, API_URL } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useClinicContext } from "@/contexts/ClinicContext";
+import { fetchPlans, formatPlanPrice, type PlansResponse } from "@/lib/plans";
 
 interface SubscriptionStatus {
   clinic_id: string;
@@ -26,18 +27,20 @@ const copy = {
     plan_pro: "Pro",
     plan_enterprise: "Enterprise",
     plan_free: "Free forever",
-    plan_price: "¥7,500 / month",
-    plan_price_enterprise: "¥15,000 / month",
+    // Fall back to the last-known-good hardcoded amount if /billing/plans
+    // couldn't be reached; the real amount is normally injected here.
+    plan_price: (amount: string) => `${amount} / month`,
+    plan_price_enterprise: (amount: string) => `${amount} / month`,
     status_active: "Active",
     status_inactive: "Inactive",
     status_past_due: "Payment past due",
     status_cancelled: "Cancelled",
     upgrade_title: "Upgrade to Pro",
     upgrade_desc: "Unlock all features for your clinic",
-    upgrade_cta: "Upgrade — ¥7,500/month",
+    upgrade_cta: (amount: string) => `Upgrade — ${amount}/month`,
     upgrade_enterprise_title: "Upgrade to Enterprise",
     upgrade_enterprise_desc: "Everything in Pro, plus priority support",
-    upgrade_enterprise_cta: "Upgrade — ¥15,000/month",
+    upgrade_enterprise_cta: (amount: string) => `Upgrade — ${amount}/month`,
     upgrading: "Redirecting to checkout...",
     manage_title: "Your Subscription",
     manage_desc: "Full access to all CareBot Japan features",
@@ -70,6 +73,7 @@ const copy = {
     banner_success: "Your plan is now active. Welcome aboard!",
     banner_cancelled: "Checkout was cancelled. Your plan was not changed.",
     error: "Could not load billing status. Please try again.",
+    action_error: "Something went wrong. Please try again.",
     loading: "Loading billing info...",
     current_plan: "Current Plan",
     compare: "Compare plans →",
@@ -83,18 +87,18 @@ const copy = {
     plan_pro: "プロ",
     plan_enterprise: "エンタープライズ",
     plan_free: "無料",
-    plan_price: "¥7,500 / 月",
-    plan_price_enterprise: "¥15,000 / 月",
+    plan_price: (amount: string) => `${amount} / 月`,
+    plan_price_enterprise: (amount: string) => `${amount} / 月`,
     status_active: "有効",
     status_inactive: "無効",
     status_past_due: "支払い期限超過",
     status_cancelled: "キャンセル済み",
     upgrade_title: "プロプランにアップグレード",
     upgrade_desc: "クリニックのすべての機能をご利用いただけます",
-    upgrade_cta: "アップグレード — ¥7,500/月",
+    upgrade_cta: (amount: string) => `アップグレード — ${amount}/月`,
     upgrade_enterprise_title: "エンタープライズにアップグレード",
     upgrade_enterprise_desc: "プロの全機能 + 優先サポート",
-    upgrade_enterprise_cta: "アップグレード — ¥15,000/月",
+    upgrade_enterprise_cta: (amount: string) => `アップグレード — ${amount}/月`,
     upgrading: "チェックアウトに移動中...",
     manage_title: "サブスクリプション",
     manage_desc: "CareBot Japan のすべての機能にアクセスできます",
@@ -128,6 +132,7 @@ const copy = {
     banner_success: "プランが有効になりました。ありがとうございます！",
     banner_cancelled: "チェックアウトがキャンセルされました。プランは変更されていません。",
     error: "請求情報を読み込めませんでした。もう一度お試しください。",
+    action_error: "エラーが発生しました。もう一度お試しください。",
     loading: "請求情報を読み込み中...",
     current_plan: "現在のプラン",
     compare: "プランを比較 →",
@@ -145,10 +150,16 @@ export default function BillingPage() {
   const [sub, setSub] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [upgradingPlan, setUpgradingPlan] = useState<Plan | null>(null);
   const [managing, setManaging] = useState(false);
   const [billingSuccess, setBillingSuccess] = useState(false);
   const [billingCancelled, setBillingCancelled] = useState(false);
+  const [plans, setPlans] = useState<PlansResponse>({ pro: null, enterprise: null });
+
+  useEffect(() => {
+    fetchPlans().then(setPlans);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -184,6 +195,7 @@ export default function BillingPage() {
 
   async function handleUpgrade(plan: Plan) {
     setUpgradingPlan(plan);
+    setActionError(null);
     try {
       const {
         data: { session },
@@ -203,15 +215,28 @@ export default function BillingPage() {
         body: JSON.stringify({ plan }),
       });
 
+      if (!res.ok) {
+        setActionError(c.action_error);
+        setUpgradingPlan(null);
+        return;
+      }
+
       const body = await res.json();
-      if (body.url) window.location.href = body.url;
+      if (body.url) {
+        window.location.href = body.url;
+      } else {
+        setActionError(c.action_error);
+        setUpgradingPlan(null);
+      }
     } catch {
+      setActionError(c.action_error);
       setUpgradingPlan(null);
     }
   }
 
   async function handleManage() {
     setManaging(true);
+    setActionError(null);
     try {
       const {
         data: { session },
@@ -226,9 +251,21 @@ export default function BillingPage() {
         headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
       });
 
+      if (!res.ok) {
+        setActionError(c.action_error);
+        setManaging(false);
+        return;
+      }
+
       const body = await res.json();
-      if (body.url) window.location.href = body.url;
+      if (body.url) {
+        window.location.href = body.url;
+      } else {
+        setActionError(c.action_error);
+        setManaging(false);
+      }
     } catch {
+      setActionError(c.action_error);
       setManaging(false);
     }
   }
@@ -241,8 +278,19 @@ export default function BillingPage() {
   const isPaid = isPro || isEnterprise;
   const isPastDue = status === "past_due";
 
+  // Live pricing from Stripe (via /billing/plans), falling back to the
+  // last-known-good hardcoded amount if the endpoint is unreachable or a
+  // price can't be resolved -- keeps this page from breaking if it errors.
+  const locale = lang === "ja" ? "ja-JP" : "en-US";
+  const proPriceDisplay = formatPlanPrice(plans.pro, locale) ?? "¥7,500";
+  const enterprisePriceDisplay = formatPlanPrice(plans.enterprise, locale) ?? "¥15,000";
+
   const planLabel = isEnterprise ? c.plan_enterprise : isPro ? c.plan_pro : c.plan_starter;
-  const planPrice = isEnterprise ? c.plan_price_enterprise : isPro ? c.plan_price : c.plan_free;
+  const planPrice = isEnterprise
+    ? c.plan_price_enterprise(enterprisePriceDisplay)
+    : isPro
+    ? c.plan_price(proPriceDisplay)
+    : c.plan_free;
   const planFeatures = isEnterprise ? c.features_enterprise : isPro ? c.features_pro : c.features_starter;
 
   function statusChip(s: string) {
@@ -275,6 +323,11 @@ export default function BillingPage() {
       {billingCancelled && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
           <p className="text-sm font-medium text-amber-800">{c.banner_cancelled}</p>
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+          <p className="text-sm text-red-600">{actionError}</p>
         </div>
       )}
 
@@ -354,7 +407,7 @@ export default function BillingPage() {
                 disabled={upgradingPlan !== null}
                 className="w-full py-2.5 bg-white text-teal-800 text-sm font-semibold rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-colors"
               >
-                {upgradingPlan === "pro" ? c.upgrading : c.upgrade_cta}
+                {upgradingPlan === "pro" ? c.upgrading : c.upgrade_cta(proPriceDisplay)}
               </button>
             </div>
           )}
@@ -369,7 +422,7 @@ export default function BillingPage() {
                 disabled={upgradingPlan !== null}
                 className="px-4 py-2 text-sm font-medium text-teal-700 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 transition-colors"
               >
-                {upgradingPlan === "enterprise" ? c.upgrading : c.upgrade_enterprise_cta}
+                {upgradingPlan === "enterprise" ? c.upgrading : c.upgrade_enterprise_cta(enterprisePriceDisplay)}
               </button>
             </div>
           )}

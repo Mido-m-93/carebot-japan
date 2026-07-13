@@ -1,5 +1,5 @@
 # apps/api/routers/appointments.py
-from fastapi import APIRouter, Query, HTTPException, Header
+from fastapi import APIRouter, Query, HTTPException, Header, Request
 from pydantic import BaseModel
 from typing import Annotated
 from services.db import get_db
@@ -7,6 +7,7 @@ from services.email import send_appointment_confirmation
 from services.calendar import push_appointment_to_calendar
 from services.auth import resolve_clinic, require_own_clinic
 from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
+from services.limiter import limiter
 from datetime import datetime, date, time, timedelta, timezone
 
 router = APIRouter()
@@ -25,7 +26,8 @@ class BookingRequest(BaseModel):
 
 
 @router.post("/book")
-def book_appointment(body: BookingRequest):
+@limiter.limit("60/minute")
+def book_appointment(request: Request, body: BookingRequest):
     """Patient-facing booking form — auto-confirms directly, no review queue needed."""
     db = get_db()
 
@@ -191,7 +193,9 @@ def get_available_slots(db, clinic_id: str, date_str: str) -> dict:
 
 
 @router.get("/slots")
+@limiter.limit("60/minute")
 def available_slots(
+    request: Request,
     clinic_id: str = Query(...),
     date: str = Query(..., description="YYYY-MM-DD"),
 ):
