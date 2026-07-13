@@ -51,8 +51,6 @@ function DashboardShell({ children }: { children: ReactNode }) {
     router.push("/login");
   }
 
-  const activeLocation = locations.find((l) => l.clinic_id === activeClinicId);
-
   // Wait for the clinic context's first fetch so every page under it sends
   // the right X-Clinic-Id from the very first render, instead of racing ahead
   // with no location selected.
@@ -76,11 +74,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
                 </option>
               ))}
             </select>
-          ) : (
-            <p className="text-xs text-teal-200 mt-0.5">
-              {activeLocation ? (lang === "ja" ? activeLocation.name_jp || activeLocation.name : activeLocation.name) : t.nav_clinic}
-            </p>
-          )}
+          ) : null}
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           {navItems.map((item) => {
