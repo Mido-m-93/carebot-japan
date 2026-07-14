@@ -40,15 +40,27 @@ _PRICE_IDS = {
 }
 
 
-def _resolve_billing_clinic(authorization: str | None, x_clinic_id: str | None) -> tuple[str, dict]:
+def _resolve_billing_clinic(
+    authorization: str | None, x_clinic_id: str | None, require_owner: bool = False
+) -> tuple[str, dict]:
     """
     Resolve the caller's active clinic, then redirect to its PARENT if it's a
     location -- billing/subscription/Stripe-customer state always lives on the
     primary clinic, never on a location (see migrations/add_clinic_locations.sql).
     Without this, a location's checkout/portal calls would create a Stripe
     customer orphaned from the real subscription.
+
+    If require_owner is True, checks the CALLER's own role (from resolve_clinic,
+    before any parent redirect) -- the parent clinic's raw row has no "role" key
+    at all, so checking it post-redirect would either always 403 (falsy != "owner")
+    or silently skip the check, neither of which reflects the caller's actual
+    membership role.
     """
     clinic_id, clinic = resolve_clinic(authorization, x_clinic_id)
+
+    if require_owner and clinic.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Only the clinic owner can manage billing")
+
     parent_id = clinic.get("parent_clinic_id")
     if not parent_id:
         return clinic_id, clinic
@@ -75,11 +87,11 @@ def create_checkout_session(
     """
     Create a Stripe Checkout session for the Pro or Enterprise plan.
 
-    1. Validates the caller's Supabase JWT.
+    1. Validates the caller's Supabase JWT and that they're the clinic owner.
     2. Creates (or reuses) a Stripe Customer tied to this clinic.
     3. Returns a Checkout session URL the frontend redirects to.
     """
-    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id, require_owner=True)
 
     price_id = _PRICE_IDS[body.plan]
 
@@ -277,11 +289,13 @@ def create_portal_session(
 ):
     """
     Create a Stripe Billing Portal session so the customer can manage their
-    subscription (update card, cancel, download invoices, etc.).
+    subscription (update card, cancel, download invoices, etc.). Owner-only --
+    the portal lets someone update payment methods and cancel the subscription,
+    which shouldn't be exposed to every staff member with dashboard access.
 
     Returns a one-time URL that expires after a few minutes.
     """
-    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id)
+    clinic_id, clinic = _resolve_billing_clinic(authorization, x_clinic_id, require_owner=True)
 
     customer_id: str | None = clinic.get("stripe_customer_id")
     if not customer_id:

@@ -1,0 +1,3 @@
+# Test-only dependencies -- not needed in production, kept separate from
+# requirements.txt so the deployed container doesn't carry test tooling.
+pytest>=8.0.0
