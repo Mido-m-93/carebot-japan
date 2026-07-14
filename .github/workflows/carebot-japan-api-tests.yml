@@ -1,0 +1,35 @@
+name: CareBot Japan API tests
+
+on:
+  push:
+    paths:
+      - "my-startups/carebot-japan/api/**"
+      - ".github/workflows/carebot-japan-api-tests.yml"
+  pull_request:
+    paths:
+      - "my-startups/carebot-japan/api/**"
+      - ".github/workflows/carebot-japan-api-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: my-startups/carebot-japan/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key"
+        run: pytest -v

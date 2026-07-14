@@ -33,9 +33,11 @@ def book_appointment(request: Request, body: BookingRequest):
 
     clinic_rows = db.table("clinics").select("name, name_jp, tier").eq("id", body.clinic_id).limit(1).execute()
     clinic_row_data = clinic_rows.data[0] if clinic_rows.data else None
-    clinic_name = (clinic_row_data.get("name_jp") or clinic_row_data.get("name")) if clinic_row_data else "クリニック"
+    if not clinic_row_data:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+    clinic_name = clinic_row_data.get("name_jp") or clinic_row_data.get("name")
 
-    if clinic_row_data and quota_exceeded({"id": body.clinic_id, "tier": clinic_row_data.get("tier")}):
+    if quota_exceeded({"id": body.clinic_id, "tier": clinic_row_data.get("tier")}):
         raise HTTPException(
             status_code=402,
             detail={
