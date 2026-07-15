@@ -85,7 +85,7 @@ export default function ClaimsPage() {
     try {
       const headers = await authHeader();
       if (!headers) { setLoading(false); return; }
-      const res = await fetch(`${API_URL}/claims/`, { headers });
+      const res = await fetch(`${API_URL}/claims`, { headers });
       if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
       const data = await res.json();
       setClaims(Array.isArray(data) ? data : []);
@@ -104,7 +104,7 @@ export default function ClaimsPage() {
     try {
       const headers = await authHeader();
       if (!headers) { setCreateError("Not signed in"); setCreating(false); return; }
-      const res = await fetch(`${API_URL}/claims/`, {
+      const res = await fetch(`${API_URL}/claims`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify({

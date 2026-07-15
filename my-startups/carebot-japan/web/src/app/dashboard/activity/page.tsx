@@ -37,7 +37,7 @@ export default function ActivityPage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { setLoading(false); return; }
 
-        const res = await fetch(`${API_URL}/audit-log/?limit=100`, {
+        const res = await fetch(`${API_URL}/audit-log?limit=100`, {
           headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
         });
         if (!res.ok) throw new Error(`API error ${res.status}`);

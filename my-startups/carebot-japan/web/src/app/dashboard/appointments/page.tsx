@@ -38,7 +38,7 @@ export default function AppointmentsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
 
-      const data = await fetch(`${API_URL}/appointments/`, {
+      const data = await fetch(`${API_URL}/appointments`, {
         headers: { Authorization: `Bearer ${session.access_token}`, "X-Clinic-Id": activeClinicId ?? "" },
       })
         .then((r) => r.ok ? r.json() : [])

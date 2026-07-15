@@ -55,8 +55,8 @@ export default function ReviewQueuePage() {
     const headers = await authHeader();
     if (!headers) { setLoading(false); return; }
     const [pending, autoConfirmed] = await Promise.all([
-      fetch(`${API_URL}/queue/?status=pending`, { headers }).then((r) => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${API_URL}/queue/?status=auto_confirmed`, { headers }).then((r) => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${API_URL}/queue?status=pending`, { headers }).then((r) => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${API_URL}/queue?status=auto_confirmed`, { headers }).then((r) => r.ok ? r.json() : []).catch(() => []),
     ]);
     setItems(Array.isArray(pending) ? pending as QueueItem[] : []);
     setAutoConfirmedItems(Array.isArray(autoConfirmed) ? autoConfirmed as QueueItem[] : []);

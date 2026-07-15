@@ -74,8 +74,8 @@ export default function DashboardOverviewPage() {
       const weekStr = weekStart.toISOString().slice(0, 10);
 
       const [apptRes, queueRes] = await Promise.all([
-        fetch(`${API_URL}/appointments/`, { headers: authHeader }).then((r) => r.ok ? r.json() : []).catch(() => []),
-        fetch(`${API_URL}/queue/?status=pending`, { headers: authHeader }).then((r) => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_URL}/appointments`, { headers: authHeader }).then((r) => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_URL}/queue?status=pending`, { headers: authHeader }).then((r) => r.ok ? r.json() : []).catch(() => []),
       ]);
 
       const allAppts: RecentAppointment[] = Array.isArray(apptRes) ? apptRes : [];
