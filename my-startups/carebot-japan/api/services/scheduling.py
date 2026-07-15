@@ -4,8 +4,12 @@ Core scheduling pipeline.
 
 For a given clinic + raw message:
 1. Classify intent (Haiku)
-2. If appointment_request: check clinic availability, extract details (Sonnet)
-3. Write appointment to Supabase, send SMS -- always, regardless of confidence
+2. If appointment_request: extract details (Sonnet). If date, time, or visit
+   reason are still missing, ask the patient for them over LINE instead of
+   booking blind -- see _missing_booking_fields / the "booking_details"
+   clarification kind.
+3. Once we have enough info, check clinic availability, write the
+   appointment to Supabase, send SMS
 4. If confidence was low, ALSO push to review_queue (status "auto_confirmed")
    as an after-the-fact spot-check -- this never blocks the booking
 5. Write audit log
@@ -149,102 +153,41 @@ def process_message(
     })
 
     extraction = extract_appointment(raw_message, today_str)
-    overall_confidence = extraction.get("confidence", 0.0)
-    field_confidences = extraction.get("field_confidences", {})
 
-    # Low confidence (intent OR extraction) no longer blocks the booking —
-    # it's flagged for after-the-fact staff review instead, see Step 3b.
-    needs_spot_check = (
-        intent_confidence < INTENT_CONFIDENCE_THRESHOLD
-        or overall_confidence < EXTRACTION_CONFIDENCE_THRESHOLD
-    )
-
-    # ── Step 2b: does the clinic actually have this slot open? ────────────
-    # Only meaningful when the patient gave a specific date+time -- a vague
-    # request ("I'd like to come in sometime next week") still books
-    # unscheduled, as before, for staff to follow up on.
-    if extraction.get("preferred_date") and extraction.get("preferred_time"):
-        availability = get_available_slots(db, clinic_id, extraction["preferred_date"])
-        requested_slot = next(
-            (s for s in availability["slots"] if s["time"] == extraction["preferred_time"]),
-            None,
-        )
-        slot_ok = availability["is_open"] and requested_slot is not None and requested_slot["available"]
-
-        if not slot_ok:
-            alternatives = [s["time"] for s in availability["slots"] if s["available"]][:3]
-
-            if not line_user_id:
-                # No channel to ask the patient directly (web/email) -- fall
-                # back to review.
-                _push_review_queue(
-                    db, clinic_id, source, raw_message,
-                    intent, intent_confidence,
-                    extracted_data=extraction, field_confidences=field_confidences,
-                )
-                return {
-                    "status": "queued_for_review",
-                    "intent": intent,
-                    "confidence": overall_confidence,
-                    "reason": "requested_slot_unavailable",
-                }
-
-            if not alternatives:
-                # Fully booked/closed that day -- tell the patient directly;
-                # a human couldn't offer anything different either.
-                return {"status": "no_alternatives_that_day", "date": extraction["preferred_date"]}
-
-            options = [{"time": t} for t in alternatives]
-            _create_pending_clarification(
-                db, clinic_id, line_user_id, kind="alternative_time",
-                options=options, source=source, raw_input=raw_message,
-                intent=intent, intent_confidence=intent_confidence,
-                extra={
-                    "date": extraction["preferred_date"],
-                    "extraction": extraction,
-                    "original_raw_message": raw_message,
-                },
+    # ── Step 2b: do we have the minimum info to actually book? ────────────
+    # A request missing date, time, or visit reason isn't a real booking yet
+    # -- ask the patient for exactly what's missing over LINE rather than
+    # creating a placeholder appointment or silently queuing it for a human
+    # to fill in later.
+    missing = _missing_booking_fields(extraction)
+    if missing:
+        if not line_user_id:
+            # No channel to ask the patient directly (web/email) -- fall
+            # back to review.
+            _push_review_queue(
+                db, clinic_id, source, raw_message,
+                intent, intent_confidence,
+                extracted_data=extraction, field_confidences=extraction.get("field_confidences", {}),
             )
             return {
-                "status": "awaiting_alternative_time",
-                "date": extraction["preferred_date"],
-                "alternatives": alternatives,
+                "status": "queued_for_review",
+                "intent": intent,
+                "confidence": extraction.get("confidence", 0.0),
+                "reason": "missing_booking_details",
             }
 
-    # ── Step 3: Write appointment to Supabase (always, unless plan limit hit) ──
-    if quota_exceeded(clinic):
-        _push_review_queue(
-            db, clinic_id, source, raw_message,
-            intent, intent_confidence,
-            extracted_data=extraction,
-            field_confidences=field_confidences,
+        _create_pending_clarification(
+            db, clinic_id, line_user_id, kind="booking_details", options=[],
+            source=source, raw_input=raw_message,
+            intent=intent, intent_confidence=intent_confidence,
+            extra={"extraction": extraction, "missing": missing},
         )
-        return {
-            "status": "plan_limit_reached",
-            "intent": intent,
-            "confidence": overall_confidence,
-            "reason": f"Starter plan limit of {STARTER_MONTHLY_LIMIT} appointments/month reached — flagged for manual booking or upgrade.",
-        }
+        return {"status": "awaiting_booking_details", "missing": missing}
 
-    result = _create_appointment(
-        db, clinic_id, source=source, extraction=extraction, raw_message=raw_message,
-        patient_phone=patient_phone, line_user_id=line_user_id,
-        clinic_name_jp=clinic_name_jp,
+    return _book_appointment_flow(
+        db, clinic_id, source, patient_phone, line_user_id,
+        intent, intent_confidence, extraction, raw_message, clinic, clinic_name_jp,
     )
-
-    # ── Step 3b: Low confidence → flag for after-the-fact spot-check ──
-    # The appointment above is already booked; this never blocks it.
-    if needs_spot_check:
-        _push_review_queue(
-            db, clinic_id, source, raw_message,
-            intent, intent_confidence,
-            extracted_data={**extraction, "appointment_id": result["appointment_id"]},
-            field_confidences=field_confidences,
-            status="auto_confirmed",
-        )
-
-    result["flagged_for_review"] = needs_spot_check
-    return result
 
 
 # ── Helpers ───────────────────────────────────────────────────
@@ -312,6 +255,124 @@ def _create_appointment(
         "sms_sent": sms_sid is not None,
         "confidence": extraction.get("confidence", 0.0),
     }
+
+
+def _missing_booking_fields(extraction: dict) -> list[str]:
+    """Which of the fields we always need before actually booking are still unknown."""
+    missing = []
+    if not extraction.get("preferred_date"):
+        missing.append("date")
+    if not extraction.get("preferred_time"):
+        missing.append("time")
+    if not extraction.get("visit_reason"):
+        missing.append("visit_reason")
+    return missing
+
+
+def _get_clinic(db, clinic_id) -> dict:
+    rows = db.table("clinics").select("id, name, name_jp, tier").eq("id", clinic_id).limit(1).execute()
+    return rows.data[0] if rows.data else {"id": clinic_id}
+
+
+def _book_appointment_flow(
+    db, clinic_id, source, patient_phone, line_user_id,
+    intent, intent_confidence, extraction, raw_message, clinic, clinic_name_jp,
+) -> dict:
+    """
+    Shared "we now have date + time + visit reason, actually book it" logic:
+    availability check (with an alternative-time clarification on conflict),
+    the plan quota check, appointment creation, and the low-confidence
+    after-the-fact spot-check flag. Used both by the main booking path and by
+    the booking-details clarification once the patient has filled in what
+    was missing.
+    """
+    overall_confidence = extraction.get("confidence", 0.0)
+    field_confidences = extraction.get("field_confidences", {})
+    needs_spot_check = (
+        intent_confidence < INTENT_CONFIDENCE_THRESHOLD
+        or overall_confidence < EXTRACTION_CONFIDENCE_THRESHOLD
+    )
+
+    availability = get_available_slots(db, clinic_id, extraction["preferred_date"])
+    requested_slot = next(
+        (s for s in availability["slots"] if s["time"] == extraction["preferred_time"]),
+        None,
+    )
+    slot_ok = availability["is_open"] and requested_slot is not None and requested_slot["available"]
+
+    if not slot_ok:
+        alternatives = [s["time"] for s in availability["slots"] if s["available"]][:3]
+
+        if not line_user_id:
+            # No channel to ask the patient directly (web/email) -- fall
+            # back to review.
+            _push_review_queue(
+                db, clinic_id, source, raw_message,
+                intent, intent_confidence,
+                extracted_data=extraction, field_confidences=field_confidences,
+            )
+            return {
+                "status": "queued_for_review",
+                "intent": intent,
+                "confidence": overall_confidence,
+                "reason": "requested_slot_unavailable",
+            }
+
+        if not alternatives:
+            # Fully booked/closed that day -- tell the patient directly;
+            # a human couldn't offer anything different either.
+            return {"status": "no_alternatives_that_day", "date": extraction["preferred_date"]}
+
+        options = [{"time": t} for t in alternatives]
+        _create_pending_clarification(
+            db, clinic_id, line_user_id, kind="alternative_time",
+            options=options, source=source, raw_input=raw_message,
+            intent=intent, intent_confidence=intent_confidence,
+            extra={
+                "date": extraction["preferred_date"],
+                "extraction": extraction,
+                "original_raw_message": raw_message,
+            },
+        )
+        return {
+            "status": "awaiting_alternative_time",
+            "date": extraction["preferred_date"],
+            "alternatives": alternatives,
+        }
+
+    if quota_exceeded(clinic):
+        _push_review_queue(
+            db, clinic_id, source, raw_message,
+            intent, intent_confidence,
+            extracted_data=extraction,
+            field_confidences=field_confidences,
+        )
+        return {
+            "status": "plan_limit_reached",
+            "intent": intent,
+            "confidence": overall_confidence,
+            "reason": f"Starter plan limit of {STARTER_MONTHLY_LIMIT} appointments/month reached — flagged for manual booking or upgrade.",
+        }
+
+    result = _create_appointment(
+        db, clinic_id, source=source, extraction=extraction, raw_message=raw_message,
+        patient_phone=patient_phone, line_user_id=line_user_id,
+        clinic_name_jp=clinic_name_jp,
+    )
+
+    # Low confidence → flag for after-the-fact spot-check. The appointment
+    # above is already booked; this never blocks it.
+    if needs_spot_check:
+        _push_review_queue(
+            db, clinic_id, source, raw_message,
+            intent, intent_confidence,
+            extracted_data={**extraction, "appointment_id": result["appointment_id"]},
+            field_confidences=field_confidences,
+            status="auto_confirmed",
+        )
+
+    result["flagged_for_review"] = needs_spot_check
+    return result
 
 
 def _find_upcoming_appointments(db, clinic_id, line_user_id):
@@ -579,12 +640,51 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
     The patient's reply to a clarifying question. Most kinds expect a plain
     number ("1", "2", ...) picking one of the options they were offered --
     far more reliable to parse than free-text date references in mixed
-    JP/EN input. "reschedule_new_time" is the exception: there are no
-    numbered options, it's free-text giving a new day/time.
+    JP/EN input. "reschedule_new_time" and "booking_details" are the
+    exception: there are no numbered options, it's free-text giving a new
+    day/time (or the missing booking details).
     """
     context = pending.get("extracted_data") or {}
     options = context.get("options", [])
     kind = context.get("kind")
+
+    if kind == "booking_details":
+        try:
+            new_extraction = extract_appointment(raw_message, today_str)
+        except Exception:
+            new_extraction = {}
+
+        merged = dict(context.get("extraction") or {})
+        for field in (
+            "preferred_date", "preferred_time", "visit_reason",
+            "patient_name", "patient_phone", "is_first_visit",
+        ):
+            if new_extraction.get(field):
+                merged[field] = new_extraction[field]
+        # Don't let a short follow-up reply ("胃が痛いです") drag down an
+        # already-solid earlier read.
+        merged["confidence"] = max(merged.get("confidence", 0.0), new_extraction.get("confidence", 0.0))
+        merged.setdefault("field_confidences", {})
+
+        _mark_clarification_resolved(db, pending["id"])
+
+        missing = _missing_booking_fields(merged)
+        if missing:
+            # Still not enough -- ask again for whatever's still missing.
+            _create_pending_clarification(
+                db, clinic_id, line_user_id, kind="booking_details", options=[],
+                source=source, raw_input=raw_message,
+                intent="appointment_request", intent_confidence=1.0,
+                extra={"extraction": merged, "missing": missing},
+            )
+            return {"status": "awaiting_booking_details", "missing": missing}
+
+        clinic = _get_clinic(db, clinic_id)
+        clinic_name_jp = clinic.get("name_jp") or clinic.get("name", "")
+        return _book_appointment_flow(
+            db, clinic_id, source, None, line_user_id,
+            "appointment_request", 1.0, merged, raw_message, clinic, clinic_name_jp,
+        )
 
     if kind == "reschedule_new_time":
         try:

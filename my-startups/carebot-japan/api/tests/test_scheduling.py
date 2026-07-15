@@ -140,7 +140,7 @@ class TestAvailabilityCheck:
         with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
              patch.object(scheduling, "extract_appointment", return_value={
                  "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
-                 "confidence": 0.95, "field_confidences": {},
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
              }):
             result = scheduling.process_message(
                 clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
@@ -158,7 +158,7 @@ class TestAvailabilityCheck:
         with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
              patch.object(scheduling, "extract_appointment", return_value={
                  "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
-                 "confidence": 0.95, "field_confidences": {},
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
              }):
             result = scheduling.process_message(
                 clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
@@ -179,7 +179,7 @@ class TestAvailabilityCheck:
         with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
              patch.object(scheduling, "extract_appointment", return_value={
                  "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
-                 "confidence": 0.95, "field_confidences": {},
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
              }):
             offered = scheduling.process_message(
                 clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
@@ -193,6 +193,120 @@ class TestAvailabilityCheck:
 
         assert result["status"] == "confirmed"
         assert result["scheduled_at"] == f"2099-01-01T{offered['alternatives'][0]}:00+09:00"
+
+
+class TestBookingDetails:
+    def test_vague_request_asks_for_missing_details_instead_of_booking_blank(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": None, "preferred_date": None, "preferred_time": None,
+                 "visit_reason": None, "confidence": 0.0, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I would like to book an appointment please",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "awaiting_booking_details"
+        assert set(result["missing"]) == {"date", "time", "visit_reason"}
+        assert clinic.rows.get("appointments", []) == []
+        pending = [r for r in clinic.rows["review_queue"] if r["status"] == "awaiting_reply"]
+        assert len(pending) == 1
+        assert pending[0]["extracted_data"]["kind"] == "booking_details"
+
+    def test_partial_details_asks_only_for_whats_still_missing(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": None,
+                 "visit_reason": None, "confidence": 0.5, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 1st",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "awaiting_booking_details"
+        assert set(result["missing"]) == {"time", "visit_reason"}
+
+    def test_follow_up_reply_fills_in_missing_details_and_books(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": None, "preferred_date": None, "preferred_time": None,
+                 "visit_reason": None, "confidence": 0.0, "field_confidences": {},
+             }):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I would like to book an appointment please",
+                source="line", line_user_id="U123",
+            )
+
+        # Follow-up reply -- no numbers, so intent classification must NOT be re-run.
+        with patch.object(scheduling, "classify_intent", side_effect=AssertionError("should not be called")), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "preferred_date": "2099-01-02", "preferred_time": "11:00",
+                 "visit_reason": "check-up", "confidence": 0.9, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="Jan 2nd at 11am, just a check-up",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "confirmed"
+        assert result["scheduled_at"] == "2099-01-02T11:00:00+09:00"
+        assert clinic.rows["appointments"][0]["visit_reason"] == "check-up"
+
+    def test_still_incomplete_follow_up_reasks_for_remaining_fields(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": None, "preferred_date": None, "preferred_time": None,
+                 "visit_reason": None, "confidence": 0.0, "field_confidences": {},
+             }):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I would like to book an appointment please",
+                source="line", line_user_id="U123",
+            )
+
+        with patch.object(scheduling, "extract_appointment", return_value={
+            "preferred_date": "2099-01-02", "preferred_time": None,
+            "visit_reason": None, "confidence": 0.3, "field_confidences": {},
+        }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="how about Jan 2nd", source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "awaiting_booking_details"
+        assert set(result["missing"]) == {"time", "visit_reason"}
+        assert clinic.rows.get("appointments", []) == []
+
+        # A second follow-up filling in the rest completes the booking.
+        with patch.object(scheduling, "extract_appointment", return_value={
+            "preferred_time": "14:00", "visit_reason": "flu symptoms",
+            "confidence": 0.9, "field_confidences": {},
+        }):
+            final = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="2pm, flu symptoms", source="line", line_user_id="U123",
+            )
+
+        assert final["status"] == "confirmed"
+        assert final["scheduled_at"] == "2099-01-02T14:00:00+09:00"
+
+    def test_missing_details_with_no_line_user_id_falls_back_to_human_review(self, clinic):
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": None, "preferred_date": None, "preferred_time": None,
+                 "visit_reason": None, "confidence": 0.0, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I'd like to book an appointment",
+                source="web", line_user_id=None,
+            )
+
+        assert result["status"] == "queued_for_review"
+        assert result["reason"] == "missing_booking_details"
+        assert clinic.rows["review_queue"][0]["status"] == "pending"
 
 
 class TestSmallTalk:
