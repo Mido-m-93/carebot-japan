@@ -352,7 +352,7 @@ class TestSmallTalk:
             result = scheduling.process_message(
                 clinic_id=CLINIC_ID, raw_message="hi there", source="line", line_user_id="U123",
             )
-        assert result == {"status": "small_talk", "reply_text": "Hello! How can I help?"}
+        assert result == {"status": "small_talk", "reply_text": "Hello! How can I help?", "lang": "en"}
         assert clinic.rows.get("review_queue", []) == []
 
     def test_out_of_scope_also_gets_a_direct_reply_not_a_human_queue(self, clinic):
@@ -370,7 +370,7 @@ class TestSmallTalk:
             result = scheduling.process_message(
                 clinic_id=CLINIC_ID, raw_message="hi", source="line", line_user_id="U123",
             )
-        assert result == {"status": "small_talk", "reply_text": None}
+        assert result == {"status": "small_talk", "reply_text": None, "lang": "en"}
 
 
 class TestGeneralInquiry:
@@ -387,7 +387,7 @@ class TestGeneralInquiry:
                 clinic_id=CLINIC_ID, raw_message="what are your hours?", source="line", line_user_id="U123",
             )
 
-        assert result == {"status": "inquiry_answered", "reply_text": "We're open 9am-6pm every day."}
+        assert result == {"status": "inquiry_answered", "reply_text": "We're open 9am-6pm every day.", "lang": "en"}
         assert "09:00-18:00" in captured["clinic_info"]
         assert clinic.rows.get("review_queue", []) == []
 
@@ -645,3 +645,65 @@ class TestReschedule:
         assert result["status"] == "no_alternatives_that_day"
         assert result["date"] == "2099-01-02"
         assert clinic.rows.get("review_queue", []) == []
+
+
+class TestBilingualLanguageDetection:
+    def test_english_message_is_tagged_en(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "cancellation", "confidence": 0.95}):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I want to cancel my appointment",
+                source="line", line_user_id="U999",
+            )
+        assert result["lang"] == "en"
+
+    def test_japanese_message_is_tagged_ja(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "cancellation", "confidence": 0.95}):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="予約をキャンセルしたいです",
+                source="line", line_user_id="U999",
+            )
+        assert result["lang"] == "ja"
+
+    def test_japanese_language_persists_through_a_bare_numeric_reply(self, clinic):
+        clinic.rows["appointments"] = [
+            {"id": "appt-1", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-01T14:00:00+09:00", "patient_name": None},
+            {"id": "appt-2", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-05T10:00:00+09:00", "patient_name": None},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "cancellation", "confidence": 0.95}):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="予約をキャンセルしたいです", source="line", line_user_id="U123",
+            )
+
+        # A bare "2" carries no language signal of its own -- must resolve
+        # using the language the clarification was originally asked in, not
+        # default back to English just because the reply itself has no kana/kanji.
+        result = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="2", source="line", line_user_id="U123",
+        )
+
+        assert result["status"] == "auto_cancelled"
+        assert result["lang"] == "ja"
+
+    def test_english_language_persists_through_a_bare_numeric_reply(self, clinic):
+        clinic.rows["appointments"] = [
+            {"id": "appt-1", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-01T14:00:00+09:00", "patient_name": None},
+            {"id": "appt-2", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-05T10:00:00+09:00", "patient_name": None},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "cancellation", "confidence": 0.95}):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I need to cancel one of my appointments",
+                source="line", line_user_id="U123",
+            )
+
+        result = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="2", source="line", line_user_id="U123",
+        )
+
+        assert result["status"] == "auto_cancelled"
+        assert result["lang"] == "en"
