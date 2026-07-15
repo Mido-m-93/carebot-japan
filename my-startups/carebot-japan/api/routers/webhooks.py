@@ -84,24 +84,55 @@ def _verify_mailgun_signature(timestamp: str, token: str, signature: str) -> boo
     return hmac.compare_digest(expected, signature)
 
 
+def _format_jp_datetime(iso_str: str) -> str:
+    """'2026-07-20T14:00:00+09:00' -> '7月20日(月) 14:00'"""
+    from datetime import datetime as _dt
+    try:
+        dt = _dt.fromisoformat(iso_str)
+        weekday = ["月", "火", "水", "木", "金", "土", "日"][dt.weekday()]
+        return f"{dt.month}月{dt.day}日({weekday}) {dt.hour:02d}:{dt.minute:02d}"
+    except ValueError:
+        return iso_str
+
+
+def _numbered_appointment_options(options: list[dict]) -> str:
+    return "\n".join(
+        f"{i}. {_format_jp_datetime(o['scheduled_at'])}"
+        for i, o in enumerate(options, start=1)
+    )
+
+
+def _numbered_time_options(date: str, options: list[dict]) -> str:
+    date_label = _format_jp_datetime(f"{date}T00:00:00+09:00").split(" ")[0]
+    lines = "\n".join(f"{i}. {o['time']}" for i, o in enumerate(options, start=1))
+    return f"{date_label}\n{lines}"
+
+
 def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
     """Run the scheduling pipeline, then push a reply back to the patient in LINE."""
     result = process_message(
         clinic_id=clinic_id,
         raw_message=text,
         source="line",
+        line_user_id=user_id or None,
     )
     if not user_id:
         return
 
+    db = get_db()
+    clinic_rows = db.table("clinics").select("name, name_jp").eq("id", clinic_id).limit(1).execute()
+    clinic_row = clinic_rows.data[0] if clinic_rows.data else {}
+    clinic_name_jp = clinic_row.get("name_jp") or clinic_row.get("name", "")
+
     status = result.get("status")
+
     if status == "confirmed":
         if result.get("scheduled_at"):
             reply = generate_confirmation(
                 patient_name=result.get("patient_name"),
                 date=result["scheduled_at"][:10],
                 time=result["scheduled_at"][11:16],
-                clinic_name_jp="新宿デモクリニック",
+                clinic_name_jp=clinic_name_jp,
             )
         else:
             patient_name = result.get("patient_name")
@@ -109,8 +140,38 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
             reply = f"{greeting}、ご予約を承りました。日時の詳細はクリニックまでお問い合わせください。"
         if result.get("flagged_for_review"):
             reply += "\n\n※内容を確認の上、担当者よりご連絡する場合がございます。"
+
+    elif status == "auto_cancelled":
+        when = _format_jp_datetime(result["scheduled_at"]) if result.get("scheduled_at") else ""
+        reply = f"ご予約（{when}）をキャンセルいたしました。またのご利用をお待ちしております。"
+
+    elif status == "cancellation_no_match":
+        reply = "現在確認できるご予約が見つかりませんでした。恐れ入りますが、クリニックまで直接お問い合わせください。"
+
+    elif status == "awaiting_cancel_choice":
+        options_text = _numbered_appointment_options(result["options"])
+        reply = f"複数のご予約が見つかりました。キャンセルするものの番号を返信してください。\n\n{options_text}"
+
+    elif status == "awaiting_alternative_time":
+        options_text = _numbered_time_options(result["date"], [{"time": t} for t in result["alternatives"]])
+        reply = f"ご希望の時間は既にご予約が入っております。以下よりご希望の時間の番号を返信してください。\n\n{options_text}"
+
+    elif status == "clarification_unclear":
+        if result.get("kind") == "cancel_choice":
+            options_text = _numbered_appointment_options(result["options"])
+            reply = f"番号でお答えください。\n\n{options_text}"
+        elif result.get("kind") == "alternative_time":
+            options_text = "\n".join(f"{i}. {o['time']}" for i, o in enumerate(result["options"], start=1))
+            reply = f"番号でお答えください。\n\n{options_text}"
+        else:
+            reply = "申し訳ございません、もう一度お試しください。"
+
+    elif status == "plan_limit_reached":
+        reply = "現在、月間のご予約上限に達しております。恐れ入りますが、クリニックまで直接お問い合わせください。"
+
     elif status == "queued_for_review":
         reply = "ご連絡ありがとうございます。内容を確認の上、担当者よりご連絡いたします。"
+
     else:
         reply = "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
 
