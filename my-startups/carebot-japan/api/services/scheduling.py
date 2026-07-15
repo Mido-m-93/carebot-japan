@@ -290,6 +290,8 @@ def _create_appointment(
 def _missing_booking_fields(extraction: dict) -> list[str]:
     """Which of the fields we always need before actually booking are still unknown."""
     missing = []
+    if not extraction.get("patient_name"):
+        missing.append("name")
     if not extraction.get("preferred_date"):
         missing.append("date")
     if not extraction.get("preferred_time"):
