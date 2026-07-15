@@ -28,6 +28,12 @@ small_talk and out_of_scope get a direct conversational reply with no review
 queue involvement. general_inquiry is answered from the clinic's real
 configured hours -- never guessed.
 
+The chat is bilingual (English/Japanese): every message we send is picked
+based on the language the patient is writing in, detected once per
+conversation via _detect_lang and carried through the whole clarification
+chain (a bare "1" reply has no language signal of its own, so it's stored
+alongside "kind"/"options" in the pending review_queue row).
+
 This runs synchronously for simplicity in MVP.
 In production, steps 1-5 run inside a background job worker.
 """
@@ -56,6 +62,13 @@ EXTRACTION_CONFIDENCE_THRESHOLD = 0.80
 MAX_CLARIFICATION_OPTIONS = 5
 
 _JP_DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"]
+
+_JAPANESE_SCRIPT_RE = re.compile("[぀-ヿ一-鿿]")
+
+
+def _detect_lang(text: str) -> str:
+    # "ja" if the message contains any Japanese script, else "en".
+    return "ja" if _JAPANESE_SCRIPT_RE.search(text or "") else "en"
 
 
 def process_message(
@@ -87,7 +100,6 @@ def process_message(
         return {"status": "error", "reason": "clinic_not_found_or_inactive"}
 
     clinic = clinic_rows.data[0]
-    clinic_name_jp = clinic.get("name_jp") or clinic["name"]
 
     # ── Step 0: does this LINE patient have a pending clarifying question? ──
     # If so, THIS message is their answer -- resolve it and skip the normal
@@ -96,6 +108,8 @@ def process_message(
         pending = _get_pending_clarification(db, clinic_id, line_user_id)
         if pending:
             return _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str)
+
+    lang = _detect_lang(raw_message)
 
     # ── Step 1: Intent classification ─────────────────────────
     _log_audit(db, clinic_id, "claude_extraction_run", metadata={
@@ -107,7 +121,7 @@ def process_message(
     try:
         intent_result = classify_intent(raw_message)
     except Exception as e:
-        return {"status": "error", "reason": "ai_error", "message": str(e)[:200]}
+        return {"status": "error", "reason": "ai_error", "message": str(e)[:200], "lang": lang}
 
     intent = intent_result.get("intent", "out_of_scope")
     intent_confidence = intent_result.get("confidence", 0.0)
@@ -115,22 +129,22 @@ def process_message(
     # ── Cancellations: resolve via LINE user correlation, not by asking the
     #    patient to re-type identifying info they never volunteer ──────────
     if intent == "cancellation":
-        return _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, intent_confidence)
+        return _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, intent_confidence, lang)
 
     # ── Reschedules: same "no human intervention" philosophy as cancellation ──
     if intent == "reschedule":
         return _handle_reschedule(
             db, clinic_id, source, line_user_id, raw_message,
-            intent_confidence, today_str, clinic_name_jp,
+            intent_confidence, today_str, lang,
         )
 
     # ── Small talk / out-of-scope: reply directly, no review queue needed ──
     if intent in ("small_talk", "out_of_scope"):
-        return _handle_small_talk(raw_message)
+        return _handle_small_talk(raw_message, lang)
 
     # ── General inquiry: answer from the clinic's real schedule data ──────
     if intent == "general_inquiry":
-        return _handle_inquiry(db, clinic_id, clinic, raw_message)
+        return _handle_inquiry(db, clinic_id, clinic, raw_message, lang)
 
     # ── Anything else the AI might return unexpectedly: fall back to human ──
     if intent != "appointment_request":
@@ -144,6 +158,7 @@ def process_message(
             "intent": intent,
             "confidence": intent_confidence,
             "reason": "non_appointment_intent",
+            "lang": lang,
         }
 
     # ── Step 2: Appointment detail extraction ─────────────────
@@ -174,26 +189,33 @@ def process_message(
                 "intent": intent,
                 "confidence": extraction.get("confidence", 0.0),
                 "reason": "missing_booking_details",
+                "lang": lang,
             }
 
         _create_pending_clarification(
             db, clinic_id, line_user_id, kind="booking_details", options=[],
             source=source, raw_input=raw_message,
-            intent=intent, intent_confidence=intent_confidence,
+            intent=intent, intent_confidence=intent_confidence, lang=lang,
             extra={"extraction": extraction, "missing": missing},
         )
-        return {"status": "awaiting_booking_details", "missing": missing}
+        return {"status": "awaiting_booking_details", "missing": missing, "lang": lang}
 
     return _book_appointment_flow(
         db, clinic_id, source, patient_phone, line_user_id,
-        intent, intent_confidence, extraction, raw_message, clinic, clinic_name_jp, today_str,
+        intent, intent_confidence, extraction, raw_message, clinic, today_str, lang,
     )
 
 
 # ── Helpers ───────────────────────────────────────────────────
 
+def _resolve_clinic_name(clinic: dict, lang: str) -> str:
+    if lang == "en":
+        return clinic.get("name") or clinic.get("name_jp") or ""
+    return clinic.get("name_jp") or clinic.get("name") or ""
+
+
 def _create_appointment(
-    db, clinic_id, *, source, extraction, raw_message, patient_phone, line_user_id, clinic_name_jp,
+    db, clinic_id, *, source, extraction, raw_message, patient_phone, line_user_id, clinic_name, lang,
 ) -> dict:
     """
     Insert an appointment row and send the SMS confirmation. Shared by the
@@ -233,7 +255,8 @@ def _create_appointment(
             patient_name=extraction.get("patient_name"),
             date=extraction["preferred_date"],
             time=extraction["preferred_time"],
-            clinic_name_jp=clinic_name_jp,
+            clinic_name=clinic_name,
+            lang=lang,
         )
         sms_sid = send_sms(sms_phone, confirmation)
 
@@ -254,6 +277,7 @@ def _create_appointment(
         "patient_name": extraction.get("patient_name"),
         "sms_sent": sms_sid is not None,
         "confidence": extraction.get("confidence", 0.0),
+        "lang": lang,
     }
 
 
@@ -281,7 +305,7 @@ def _is_past_date(date_str: str, today_str: str) -> bool:
 
 def _book_appointment_flow(
     db, clinic_id, source, patient_phone, line_user_id,
-    intent, intent_confidence, extraction, raw_message, clinic, clinic_name_jp, today_str,
+    intent, intent_confidence, extraction, raw_message, clinic, today_str, lang,
 ) -> dict:
     """
     Shared "we now have date + time + visit reason, actually book it" logic:
@@ -294,7 +318,7 @@ def _book_appointment_flow(
     if _is_past_date(extraction["preferred_date"], today_str):
         # A date that's already gone isn't "fully booked" -- say so plainly
         # instead of running the normal availability check against it.
-        return {"status": "date_in_the_past", "date": extraction["preferred_date"]}
+        return {"status": "date_in_the_past", "date": extraction["preferred_date"], "lang": lang}
 
     overall_confidence = extraction.get("confidence", 0.0)
     field_confidences = extraction.get("field_confidences", {})
@@ -326,18 +350,19 @@ def _book_appointment_flow(
                 "intent": intent,
                 "confidence": overall_confidence,
                 "reason": "requested_slot_unavailable",
+                "lang": lang,
             }
 
         if not alternatives:
             # Fully booked/closed that day -- tell the patient directly;
             # a human couldn't offer anything different either.
-            return {"status": "no_alternatives_that_day", "date": extraction["preferred_date"]}
+            return {"status": "no_alternatives_that_day", "date": extraction["preferred_date"], "lang": lang}
 
         options = [{"time": t} for t in alternatives]
         _create_pending_clarification(
             db, clinic_id, line_user_id, kind="alternative_time",
             options=options, source=source, raw_input=raw_message,
-            intent=intent, intent_confidence=intent_confidence,
+            intent=intent, intent_confidence=intent_confidence, lang=lang,
             extra={
                 "date": extraction["preferred_date"],
                 "extraction": extraction,
@@ -348,6 +373,7 @@ def _book_appointment_flow(
             "status": "awaiting_alternative_time",
             "date": extraction["preferred_date"],
             "alternatives": alternatives,
+            "lang": lang,
         }
 
     if quota_exceeded(clinic):
@@ -362,12 +388,14 @@ def _book_appointment_flow(
             "intent": intent,
             "confidence": overall_confidence,
             "reason": f"Starter plan limit of {STARTER_MONTHLY_LIMIT} appointments/month reached — flagged for manual booking or upgrade.",
+            "lang": lang,
         }
 
+    clinic_name = _resolve_clinic_name(clinic, lang)
     result = _create_appointment(
         db, clinic_id, source=source, extraction=extraction, raw_message=raw_message,
         patient_phone=patient_phone, line_user_id=line_user_id,
-        clinic_name_jp=clinic_name_jp,
+        clinic_name=clinic_name, lang=lang,
     )
 
     # Low confidence → flag for after-the-fact spot-check. The appointment
@@ -401,7 +429,7 @@ def _find_upcoming_appointments(db, clinic_id, line_user_id):
     return rows.data or []
 
 
-def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, intent_confidence):
+def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, intent_confidence, lang):
     if not line_user_id:
         # No channel to identify the patient (web/email cancellation with no
         # account system) -- this genuinely needs a human.
@@ -411,7 +439,7 @@ def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, inten
         )
         return {
             "status": "queued_for_review", "intent": "cancellation",
-            "confidence": intent_confidence, "reason": "no_line_user_id",
+            "confidence": intent_confidence, "reason": "no_line_user_id", "lang": lang,
         }
 
     matches = _find_upcoming_appointments(db, clinic_id, line_user_id)
@@ -427,10 +455,11 @@ def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, inten
             "appointment_id": appt["id"],
             "scheduled_at": appt["scheduled_at"],
             "patient_name": appt.get("patient_name"),
+            "lang": lang,
         }
 
     if len(matches) == 0:
-        return {"status": "cancellation_no_match"}
+        return {"status": "cancellation_no_match", "lang": lang}
 
     # Ambiguous: this LINE user has more than one upcoming appointment. Ask
     # which one, rather than guessing.
@@ -441,14 +470,14 @@ def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, inten
     _create_pending_clarification(
         db, clinic_id, line_user_id, kind="cancel_choice", options=options,
         source=source, raw_input=raw_message, intent="cancellation",
-        intent_confidence=intent_confidence,
+        intent_confidence=intent_confidence, lang=lang,
     )
-    return {"status": "awaiting_cancel_choice", "options": options}
+    return {"status": "awaiting_cancel_choice", "options": options, "lang": lang}
 
 
 def _handle_reschedule(
     db, clinic_id, source, line_user_id, raw_message,
-    intent_confidence, today_str, clinic_name_jp,
+    intent_confidence, today_str, lang,
 ):
     if not line_user_id:
         # No channel to identify the patient (web/email reschedule with no
@@ -459,13 +488,13 @@ def _handle_reschedule(
         )
         return {
             "status": "queued_for_review", "intent": "reschedule",
-            "confidence": intent_confidence, "reason": "no_line_user_id",
+            "confidence": intent_confidence, "reason": "no_line_user_id", "lang": lang,
         }
 
     matches = _find_upcoming_appointments(db, clinic_id, line_user_id)
 
     if len(matches) == 0:
-        return {"status": "reschedule_no_match"}
+        return {"status": "reschedule_no_match", "lang": lang}
 
     try:
         extraction = extract_appointment(raw_message, today_str)
@@ -479,7 +508,7 @@ def _handle_reschedule(
         if new_date and new_time:
             return _apply_reschedule(
                 db, clinic_id, source, line_user_id, appt, new_date, new_time,
-                clinic_name_jp, raw_message, today_str,
+                raw_message, today_str, lang,
             )
 
         # They said "reschedule" but didn't say to when in the same message --
@@ -487,10 +516,10 @@ def _handle_reschedule(
         _create_pending_clarification(
             db, clinic_id, line_user_id, kind="reschedule_new_time", options=[],
             source=source, raw_input=raw_message,
-            intent="reschedule", intent_confidence=intent_confidence,
+            intent="reschedule", intent_confidence=intent_confidence, lang=lang,
             extra={"appointment_id": appt["id"], "old_scheduled_at": appt["scheduled_at"]},
         )
-        return {"status": "awaiting_reschedule_time", "scheduled_at": appt["scheduled_at"]}
+        return {"status": "awaiting_reschedule_time", "scheduled_at": appt["scheduled_at"], "lang": lang}
 
     # Ambiguous: more than one upcoming appointment -- ask which one, rather
     # than guessing which the patient means.
@@ -501,17 +530,17 @@ def _handle_reschedule(
     _create_pending_clarification(
         db, clinic_id, line_user_id, kind="reschedule_choice", options=options,
         source=source, raw_input=raw_message,
-        intent="reschedule", intent_confidence=intent_confidence,
+        intent="reschedule", intent_confidence=intent_confidence, lang=lang,
         extra={"new_date": new_date, "new_time": new_time},
     )
-    return {"status": "awaiting_reschedule_choice", "options": options}
+    return {"status": "awaiting_reschedule_choice", "options": options, "lang": lang}
 
 
-def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_time, clinic_name_jp, raw_message, today_str):
+def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_time, raw_message, today_str, lang):
     if _is_past_date(new_date, today_str):
         # A date that's already gone isn't "fully booked" -- say so plainly
         # instead of running the normal availability check against it.
-        return {"status": "date_in_the_past", "date": new_date}
+        return {"status": "date_in_the_past", "date": new_date, "lang": lang}
 
     availability = get_available_slots(db, clinic_id, new_date)
     requested_slot = next(
@@ -524,12 +553,12 @@ def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_t
         alternatives = [s["time"] for s in availability["slots"] if s["available"]][:3]
 
         if not alternatives:
-            return {"status": "no_alternatives_that_day", "date": new_date}
+            return {"status": "no_alternatives_that_day", "date": new_date, "lang": lang}
 
         options = [{"time": t} for t in alternatives]
         _create_pending_clarification(
             db, clinic_id, line_user_id, kind="reschedule_alternative_time", options=options,
-            source=source, raw_input=raw_message, intent="reschedule", intent_confidence=1.0,
+            source=source, raw_input=raw_message, intent="reschedule", intent_confidence=1.0, lang=lang,
             extra={
                 "appointment_id": appt["id"],
                 "old_scheduled_at": appt["scheduled_at"],
@@ -540,6 +569,7 @@ def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_t
             "status": "awaiting_reschedule_alternative",
             "date": new_date,
             "alternatives": alternatives,
+            "lang": lang,
         }
 
     old_scheduled_at = appt["scheduled_at"]
@@ -554,24 +584,25 @@ def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_t
         "appointment_id": appt["id"],
         "old_scheduled_at": old_scheduled_at,
         "new_scheduled_at": new_scheduled_at,
+        "lang": lang,
     }
 
 
-def _handle_small_talk(raw_message: str) -> dict:
+def _handle_small_talk(raw_message: str, lang: str) -> dict:
     try:
         reply = generate_small_talk_reply(raw_message)
     except Exception:
         reply = None
-    return {"status": "small_talk", "reply_text": reply}
+    return {"status": "small_talk", "reply_text": reply, "lang": lang}
 
 
-def _handle_inquiry(db, clinic_id, clinic, raw_message: str) -> dict:
+def _handle_inquiry(db, clinic_id, clinic, raw_message: str, lang: str) -> dict:
     clinic_info = _format_clinic_info(db, clinic_id, clinic)
     try:
         reply = generate_inquiry_reply(raw_message, clinic_info)
     except Exception:
         reply = None
-    return {"status": "inquiry_answered", "reply_text": reply}
+    return {"status": "inquiry_answered", "reply_text": reply, "lang": lang}
 
 
 def _format_clinic_info(db, clinic_id, clinic) -> str:
@@ -599,9 +630,9 @@ def _format_clinic_info(db, clinic_id, clinic) -> str:
 
 def _create_pending_clarification(
     db, clinic_id, line_user_id, *, kind, options, source, raw_input,
-    intent, intent_confidence, extra=None,
+    intent, intent_confidence, lang, extra=None,
 ):
-    context = {"kind": kind, "options": options}
+    context = {"kind": kind, "options": options, "lang": lang}
     if extra:
         context.update(extra)
     item = {
@@ -644,12 +675,6 @@ def _mark_clarification_resolved(db, pending_id, choice_idx=None):
     }).eq("id", pending_id).execute()
 
 
-def _get_clinic_name_jp(db, clinic_id) -> str:
-    clinic_rows = db.table("clinics").select("name, name_jp").eq("id", clinic_id).limit(1).execute()
-    clinic_row = clinic_rows.data[0] if clinic_rows.data else {}
-    return clinic_row.get("name_jp") or clinic_row.get("name", "")
-
-
 def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str):
     """
     The patient's reply to a clarifying question. Most kinds expect a plain
@@ -658,10 +683,15 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
     JP/EN input. "reschedule_new_time" and "booking_details" are the
     exception: there are no numbered options, it's free-text giving a new
     day/time (or the missing booking details).
+
+    The language of the reply itself isn't a reliable signal (a bare "1"
+    carries none), so we use whatever language the clarification was
+    originally asked in, stored on the pending row.
     """
     context = pending.get("extracted_data") or {}
     options = context.get("options", [])
     kind = context.get("kind")
+    lang = context.get("lang") or _detect_lang(raw_message)
 
     if kind == "booking_details":
         try:
@@ -689,16 +719,15 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
             _create_pending_clarification(
                 db, clinic_id, line_user_id, kind="booking_details", options=[],
                 source=source, raw_input=raw_message,
-                intent="appointment_request", intent_confidence=1.0,
+                intent="appointment_request", intent_confidence=1.0, lang=lang,
                 extra={"extraction": merged, "missing": missing},
             )
-            return {"status": "awaiting_booking_details", "missing": missing}
+            return {"status": "awaiting_booking_details", "missing": missing, "lang": lang}
 
         clinic = _get_clinic(db, clinic_id)
-        clinic_name_jp = clinic.get("name_jp") or clinic.get("name", "")
         return _book_appointment_flow(
             db, clinic_id, source, None, line_user_id,
-            "appointment_request", 1.0, merged, raw_message, clinic, clinic_name_jp, today_str,
+            "appointment_request", 1.0, merged, raw_message, clinic, today_str, lang,
         )
 
     if kind == "reschedule_new_time":
@@ -710,14 +739,13 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         new_time = extraction.get("preferred_time")
         if not (new_date and new_time):
             # Still couldn't understand -- leave the row open and re-ask.
-            return {"status": "clarification_unclear", "kind": kind, "options": []}
+            return {"status": "clarification_unclear", "kind": kind, "options": [], "lang": lang}
 
         _mark_clarification_resolved(db, pending["id"])
-        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
         appt = {"id": context["appointment_id"], "scheduled_at": context["old_scheduled_at"]}
         return _apply_reschedule(
             db, clinic_id, source, line_user_id, appt, new_date, new_time,
-            clinic_name_jp, raw_message, today_str,
+            raw_message, today_str, lang,
         )
 
     match = re.search(r"\d+", raw_message)
@@ -726,7 +754,7 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
     if choice_idx < 0 or choice_idx >= len(options):
         # Didn't understand the reply -- re-ask the same question rather
         # than silently dropping it or guessing.
-        return {"status": "clarification_unclear", "kind": kind, "options": options}
+        return {"status": "clarification_unclear", "kind": kind, "options": options, "lang": lang}
 
     chosen = options[choice_idx]
 
@@ -741,21 +769,22 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
             "status": "auto_cancelled",
             "appointment_id": appt_id,
             "scheduled_at": chosen["scheduled_at"],
+            "lang": lang,
         }
 
     if kind == "alternative_time":
         _mark_clarification_resolved(db, pending["id"], choice_idx)
-        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
+        clinic = _get_clinic(db, clinic_id)
+        clinic_name = _resolve_clinic_name(clinic, lang)
         extraction = {**context.get("extraction", {}), "preferred_time": chosen["time"]}
         original_raw_message = context.get("original_raw_message", raw_message)
         return _create_appointment(
             db, clinic_id, source=source, extraction=extraction, raw_message=original_raw_message,
-            patient_phone=None, line_user_id=line_user_id, clinic_name_jp=clinic_name_jp,
+            patient_phone=None, line_user_id=line_user_id, clinic_name=clinic_name, lang=lang,
         )
 
     if kind == "reschedule_choice":
         _mark_clarification_resolved(db, pending["id"], choice_idx)
-        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
         appt = {"id": chosen["appointment_id"], "scheduled_at": chosen["scheduled_at"]}
         new_date = context.get("new_date")
         new_time = context.get("new_time")
@@ -763,29 +792,28 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         if new_date and new_time:
             return _apply_reschedule(
                 db, clinic_id, source, line_user_id, appt, new_date, new_time,
-                clinic_name_jp, raw_message, today_str,
+                raw_message, today_str, lang,
             )
 
         _create_pending_clarification(
             db, clinic_id, line_user_id, kind="reschedule_new_time", options=[],
             source=source, raw_input=raw_message,
-            intent="reschedule", intent_confidence=1.0,
+            intent="reschedule", intent_confidence=1.0, lang=lang,
             extra={"appointment_id": appt["id"], "old_scheduled_at": appt["scheduled_at"]},
         )
-        return {"status": "awaiting_reschedule_time", "scheduled_at": appt["scheduled_at"]}
+        return {"status": "awaiting_reschedule_time", "scheduled_at": appt["scheduled_at"], "lang": lang}
 
     if kind == "reschedule_alternative_time":
         _mark_clarification_resolved(db, pending["id"], choice_idx)
-        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
         appt = {"id": context["appointment_id"], "scheduled_at": context.get("old_scheduled_at")}
         new_date = context["date"]
         new_time = chosen["time"]
         return _apply_reschedule(
             db, clinic_id, source, line_user_id, appt, new_date, new_time,
-            clinic_name_jp, raw_message, today_str,
+            raw_message, today_str, lang,
         )
 
-    return {"status": "clarification_unclear", "kind": kind, "options": options}
+    return {"status": "clarification_unclear", "kind": kind, "options": options, "lang": lang}
 
 
 def _push_review_queue(

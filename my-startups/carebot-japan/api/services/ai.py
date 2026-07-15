@@ -159,11 +159,30 @@ def generate_confirmation(
     patient_name: str | None,
     date: str,
     time: str,
-    clinic_name_jp: str,
+    clinic_name: str,
+    lang: str = "ja",
 ) -> str:
-    greeting = f"{patient_name}様" if patient_name else "お客様"
-
     dt_str = f"{date}T{time}:00"
+
+    if lang == "en":
+        greeting = f"Dear {patient_name}" if patient_name else "Dear Customer"
+        try:
+            dt = datetime.fromisoformat(dt_str)
+            date_en = f"{dt.strftime('%B')} {dt.day}, {dt.year} ({dt.strftime('%a')})"
+            time_en = f"{dt.hour:02d}:{dt.minute:02d}"
+        except ValueError:
+            date_en = date
+            time_en = time
+
+        return (
+            f"{greeting}, your appointment has been confirmed.\n\n"
+            f"[{clinic_name}]\n"
+            f"Date & time: {date_en} {time_en}\n"
+            f"We look forward to seeing you.\n\n"
+            f"Please contact us if you need to cancel."
+        )
+
+    greeting = f"{patient_name}様" if patient_name else "お客様"
     try:
         dt = datetime.fromisoformat(dt_str)
         weekdays = ["月", "火", "水", "木", "金", "土", "日"]
@@ -176,7 +195,7 @@ def generate_confirmation(
 
     return (
         f"{greeting}、ご予約を承りました。\n\n"
-        f"【{clinic_name_jp}】\n"
+        f"【{clinic_name}】\n"
         f"日時: {date_jp} {time_jp}\n"
         f"ご来院をお待ちしております。\n\n"
         f"当日のキャンセルはこちらまでご連絡ください。"

@@ -84,39 +84,65 @@ def _verify_mailgun_signature(timestamp: str, token: str, signature: str) -> boo
     return hmac.compare_digest(expected, signature)
 
 
-def _format_jp_datetime(iso_str: str) -> str:
-    """'2026-07-20T14:00:00+09:00' -> '7月20日(月) 14:00'"""
+def _format_datetime(iso_str: str, lang: str) -> str:
+    """'2026-07-20T14:00:00+09:00' -> '7月20日(月) 14:00' (ja) or 'Jul 20 (Mon) 14:00' (en)"""
     from datetime import datetime as _dt
     try:
         dt = _dt.fromisoformat(iso_str)
-        weekday = ["月", "火", "水", "木", "金", "土", "日"][dt.weekday()]
-        return f"{dt.month}月{dt.day}日({weekday}) {dt.hour:02d}:{dt.minute:02d}"
     except ValueError:
         return iso_str
+    if lang == "en":
+        return f"{dt.strftime('%b')} {dt.day} ({dt.strftime('%a')}) {dt.hour:02d}:{dt.minute:02d}"
+    weekday = ["月", "火", "水", "木", "金", "土", "日"][dt.weekday()]
+    return f"{dt.month}月{dt.day}日({weekday}) {dt.hour:02d}:{dt.minute:02d}"
 
 
-def _numbered_appointment_options(options: list[dict]) -> str:
+def _date_label(date_str: str, lang: str) -> str:
+    """'2026-07-20' -> '7月20日(月)' (ja) or 'Jul 20 (Mon)' (en)"""
+    from datetime import datetime as _dt
+    try:
+        dt = _dt.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return date_str
+    if lang == "en":
+        return f"{dt.strftime('%b')} {dt.day} ({dt.strftime('%a')})"
+    weekday = ["月", "火", "水", "木", "金", "土", "日"][dt.weekday()]
+    return f"{dt.month}月{dt.day}日({weekday})"
+
+
+def _numbered_appointment_options(options: list[dict], lang: str) -> str:
     return "\n".join(
-        f"{i}. {_format_jp_datetime(o['scheduled_at'])}"
+        f"{i}. {_format_datetime(o['scheduled_at'], lang)}"
         for i, o in enumerate(options, start=1)
     )
 
 
-def _numbered_time_options(date: str, options: list[dict]) -> str:
-    date_label = _format_jp_datetime(f"{date}T00:00:00+09:00").split(" ")[0]
+def _numbered_time_options(date: str, options: list[dict], lang: str) -> str:
+    date_label = _date_label(date, lang)
     lines = "\n".join(f"{i}. {o['time']}" for i, o in enumerate(options, start=1))
     return f"{date_label}\n{lines}"
 
 
-_MISSING_BOOKING_FIELD_LABELS_JP = {
-    "date": "ご希望の日付",
-    "time": "ご希望の時間",
-    "visit_reason": "受診理由（どのようなご用件か）",
+_MISSING_BOOKING_FIELD_LABELS = {
+    "ja": {
+        "date": "ご希望の日付",
+        "time": "ご希望の時間",
+        "visit_reason": "受診理由（どのようなご用件か）",
+    },
+    "en": {
+        "date": "your preferred date",
+        "time": "your preferred time",
+        "visit_reason": "the reason for your visit",
+    },
 }
 
 
-def _missing_booking_fields_prompt(missing: list[str]) -> str:
-    lines = "\n".join(f"・{_MISSING_BOOKING_FIELD_LABELS_JP[m]}" for m in missing)
+def _missing_booking_fields_prompt(missing: list[str], lang: str) -> str:
+    labels = _MISSING_BOOKING_FIELD_LABELS[lang]
+    if lang == "en":
+        lines = "\n".join(f"- {labels[m]}" for m in missing)
+        return f"To book your appointment, please tell us:\n{lines}"
+    lines = "\n".join(f"・{labels[m]}" for m in missing)
     return f"ご予約を承るため、以下を教えてください。\n{lines}"
 
 
@@ -131,10 +157,15 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
     if not user_id:
         return
 
+    lang = result.get("lang", "ja")
+
     db = get_db()
     clinic_rows = db.table("clinics").select("name, name_jp").eq("id", clinic_id).limit(1).execute()
     clinic_row = clinic_rows.data[0] if clinic_rows.data else {}
-    clinic_name_jp = clinic_row.get("name_jp") or clinic_row.get("name", "")
+    if lang == "en":
+        clinic_name = clinic_row.get("name") or clinic_row.get("name_jp") or ""
+    else:
+        clinic_name = clinic_row.get("name_jp") or clinic_row.get("name") or ""
 
     status = result.get("status")
 
@@ -144,84 +175,126 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
                 patient_name=result.get("patient_name"),
                 date=result["scheduled_at"][:10],
                 time=result["scheduled_at"][11:16],
-                clinic_name_jp=clinic_name_jp,
+                clinic_name=clinic_name,
+                lang=lang,
             )
         else:
             patient_name = result.get("patient_name")
-            greeting = f"{patient_name}様" if patient_name else "お客様"
-            reply = f"{greeting}、ご予約を承りました。日時の詳細はクリニックまでお問い合わせください。"
+            if lang == "en":
+                greeting = f"Dear {patient_name}" if patient_name else "Dear Customer"
+                reply = f"{greeting}, your appointment request has been received. Please contact the clinic for date and time details."
+            else:
+                greeting = f"{patient_name}様" if patient_name else "お客様"
+                reply = f"{greeting}、ご予約を承りました。日時の詳細はクリニックまでお問い合わせください。"
         if result.get("flagged_for_review"):
-            reply += "\n\n※内容を確認の上、担当者よりご連絡する場合がございます。"
+            if lang == "en":
+                reply += "\n\nOur staff will review the details and may contact you if needed."
+            else:
+                reply += "\n\n※内容を確認の上、担当者よりご連絡する場合がございます。"
 
     elif status == "awaiting_booking_details":
-        reply = _missing_booking_fields_prompt(result["missing"])
+        reply = _missing_booking_fields_prompt(result["missing"], lang)
 
     elif status == "auto_cancelled":
-        when = _format_jp_datetime(result["scheduled_at"]) if result.get("scheduled_at") else ""
-        reply = f"ご予約（{when}）をキャンセルいたしました。またのご利用をお待ちしております。"
+        when = _format_datetime(result["scheduled_at"], lang) if result.get("scheduled_at") else ""
+        if lang == "en":
+            reply = f"Your appointment ({when}) has been cancelled. We hope to see you again."
+        else:
+            reply = f"ご予約（{when}）をキャンセルいたしました。またのご利用をお待ちしております。"
 
-    elif status == "cancellation_no_match":
-        reply = "現在確認できるご予約が見つかりませんでした。恐れ入りますが、クリニックまで直接お問い合わせください。"
+    elif status in ("cancellation_no_match", "reschedule_no_match"):
+        if lang == "en":
+            reply = "We couldn't find a matching appointment. Please contact the clinic directly."
+        else:
+            reply = "現在確認できるご予約が見つかりませんでした。恐れ入りますが、クリニックまで直接お問い合わせください。"
 
     elif status == "awaiting_cancel_choice":
-        options_text = _numbered_appointment_options(result["options"])
-        reply = f"複数のご予約が見つかりました。キャンセルするものの番号を返信してください。\n\n{options_text}"
+        options_text = _numbered_appointment_options(result["options"], lang)
+        if lang == "en":
+            reply = f"We found multiple appointments. Please reply with the number of the one you'd like to cancel.\n\n{options_text}"
+        else:
+            reply = f"複数のご予約が見つかりました。キャンセルするものの番号を返信してください。\n\n{options_text}"
 
-    elif status == "awaiting_alternative_time":
-        options_text = _numbered_time_options(result["date"], [{"time": t} for t in result["alternatives"]])
-        reply = f"ご希望の時間は既にご予約が入っております。以下よりご希望の時間の番号を返信してください。\n\n{options_text}"
+    elif status in ("awaiting_alternative_time", "awaiting_reschedule_alternative"):
+        options_text = _numbered_time_options(result["date"], [{"time": t} for t in result["alternatives"]], lang)
+        if lang == "en":
+            reply = f"That time is already booked. Please reply with the number of one of the available times below.\n\n{options_text}"
+        else:
+            reply = f"ご希望の時間は既にご予約が入っております。以下よりご希望の時間の番号を返信してください。\n\n{options_text}"
 
     elif status == "rescheduled":
-        old_when = _format_jp_datetime(result["old_scheduled_at"])
-        new_when = _format_jp_datetime(result["new_scheduled_at"])
-        reply = f"ご予約を変更いたしました。\n変更前: {old_when}\n変更後: {new_when}"
-
-    elif status == "reschedule_no_match":
-        reply = "現在確認できるご予約が見つかりませんでした。恐れ入りますが、クリニックまで直接お問い合わせください。"
+        old_when = _format_datetime(result["old_scheduled_at"], lang)
+        new_when = _format_datetime(result["new_scheduled_at"], lang)
+        if lang == "en":
+            reply = f"Your appointment has been rescheduled.\nFrom: {old_when}\nTo: {new_when}"
+        else:
+            reply = f"ご予約を変更いたしました。\n変更前: {old_when}\n変更後: {new_when}"
 
     elif status == "awaiting_reschedule_choice":
-        options_text = _numbered_appointment_options(result["options"])
-        reply = f"複数のご予約が見つかりました。変更するものの番号を返信してください。\n\n{options_text}"
+        options_text = _numbered_appointment_options(result["options"], lang)
+        if lang == "en":
+            reply = f"We found multiple appointments. Please reply with the number of the one you'd like to reschedule.\n\n{options_text}"
+        else:
+            reply = f"複数のご予約が見つかりました。変更するものの番号を返信してください。\n\n{options_text}"
 
     elif status == "awaiting_reschedule_time":
-        when = _format_jp_datetime(result["scheduled_at"]) if result.get("scheduled_at") else ""
-        reply = f"ご予約（{when}）の変更を承ります。ご希望の新しい日時を教えてください。"
-
-    elif status == "awaiting_reschedule_alternative":
-        options_text = _numbered_time_options(result["date"], [{"time": t} for t in result["alternatives"]])
-        reply = f"ご希望の時間は既にご予約が入っております。以下よりご希望の時間の番号を返信してください。\n\n{options_text}"
+        when = _format_datetime(result["scheduled_at"], lang) if result.get("scheduled_at") else ""
+        if lang == "en":
+            reply = f"We'll help you reschedule your appointment ({when}). Please tell us your preferred new date and time."
+        else:
+            reply = f"ご予約（{when}）の変更を承ります。ご希望の新しい日時を教えてください。"
 
     elif status == "no_alternatives_that_day":
-        date_label = _format_jp_datetime(f"{result['date']}T00:00:00+09:00").split(" ")[0]
-        reply = f"{date_label}は空きがございません。恐れ入りますが、別の日をお知らせください。"
+        date_label = _date_label(result["date"], lang)
+        if lang == "en":
+            reply = f"{date_label} is fully booked. Please let us know another day."
+        else:
+            reply = f"{date_label}は空きがございません。恐れ入りますが、別の日をお知らせください。"
 
     elif status == "date_in_the_past":
-        date_label = _format_jp_datetime(f"{result['date']}T00:00:00+09:00").split(" ")[0]
-        reply = f"{date_label}は既に過ぎた日付のため、ご予約いただけません。恐れ入りますが、今後のご希望日時をお知らせください。"
+        date_label = _date_label(result["date"], lang)
+        if lang == "en":
+            reply = f"{date_label} has already passed, so we can't book that date. Please let us know a future date and time."
+        else:
+            reply = f"{date_label}は既に過ぎた日付のため、ご予約いただけません。恐れ入りますが、今後のご希望日時をお知らせください。"
 
     elif status == "clarification_unclear":
         if result.get("kind") in ("cancel_choice", "reschedule_choice"):
-            options_text = _numbered_appointment_options(result["options"])
-            reply = f"番号でお答えください。\n\n{options_text}"
+            options_text = _numbered_appointment_options(result["options"], lang)
+            reply = f"Please reply with a number.\n\n{options_text}" if lang == "en" else f"番号でお答えください。\n\n{options_text}"
         elif result.get("kind") in ("alternative_time", "reschedule_alternative_time"):
             options_text = "\n".join(f"{i}. {o['time']}" for i, o in enumerate(result["options"], start=1))
-            reply = f"番号でお答えください。\n\n{options_text}"
+            reply = f"Please reply with a number.\n\n{options_text}" if lang == "en" else f"番号でお答えください。\n\n{options_text}"
         elif result.get("kind") == "reschedule_new_time":
-            reply = "日時がわかりませんでした。ご希望の日時を教えてください（例：7月20日の15時）。"
+            if lang == "en":
+                reply = "We couldn't understand the date/time. Could you tell us again? (e.g. July 20th at 3pm)"
+            else:
+                reply = "日時がわかりませんでした。ご希望の日時を教えてください（例：7月20日の15時）。"
         else:
-            reply = "申し訳ございません、もう一度お試しください。"
+            reply = "Sorry, could you try again?" if lang == "en" else "申し訳ございません、もう一度お試しください。"
 
     elif status == "plan_limit_reached":
-        reply = "現在、月間のご予約上限に達しております。恐れ入りますが、クリニックまで直接お問い合わせください。"
+        if lang == "en":
+            reply = "We've reached this month's appointment limit. Please contact the clinic directly."
+        else:
+            reply = "現在、月間のご予約上限に達しております。恐れ入りますが、クリニックまで直接お問い合わせください。"
 
     elif status in ("small_talk", "inquiry_answered"):
-        reply = result.get("reply_text") or "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
+        fallback = "Sorry, something went wrong. Please call the clinic directly." if lang == "en" \
+            else "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
+        reply = result.get("reply_text") or fallback
 
     elif status == "queued_for_review":
-        reply = "ご連絡ありがとうございます。内容を確認の上、担当者よりご連絡いたします。"
+        if lang == "en":
+            reply = "Thank you for reaching out. Our staff will review your request and get back to you."
+        else:
+            reply = "ご連絡ありがとうございます。内容を確認の上、担当者よりご連絡いたします。"
 
     else:
-        reply = "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
+        if lang == "en":
+            reply = "Sorry, something went wrong while processing your request. Please call the clinic directly."
+        else:
+            reply = "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
 
     send_line_reply(user_id, reply)
 
