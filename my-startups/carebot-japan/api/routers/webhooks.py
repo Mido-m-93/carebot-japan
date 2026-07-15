@@ -125,11 +125,13 @@ def _numbered_time_options(date: str, options: list[dict], lang: str) -> str:
 
 _MISSING_BOOKING_FIELD_LABELS = {
     "ja": {
+        "name": "お名前",
         "date": "ご希望の日付",
         "time": "ご希望の時間",
         "visit_reason": "受診理由（どのようなご用件か）",
     },
     "en": {
+        "name": "your name",
         "date": "your preferred date",
         "time": "your preferred time",
         "visit_reason": "the reason for your visit",
