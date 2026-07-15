@@ -195,6 +195,10 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
         date_label = _format_jp_datetime(f"{result['date']}T00:00:00+09:00").split(" ")[0]
         reply = f"{date_label}は空きがございません。恐れ入りますが、別の日をお知らせください。"
 
+    elif status == "date_in_the_past":
+        date_label = _format_jp_datetime(f"{result['date']}T00:00:00+09:00").split(" ")[0]
+        reply = f"{date_label}は既に過ぎた日付のため、ご予約いただけません。恐れ入りますが、今後のご希望日時をお知らせください。"
+
     elif status == "clarification_unclear":
         if result.get("kind") in ("cancel_choice", "reschedule_choice"):
             options_text = _numbered_appointment_options(result["options"])

@@ -309,6 +309,42 @@ class TestBookingDetails:
         assert clinic.rows["review_queue"][0]["status"] == "pending"
 
 
+class TestPastDateGuard:
+    def test_booking_a_past_date_is_rejected_instead_of_reported_as_fully_booked(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2020-01-05", "preferred_time": "10:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 5 2020 at 10am",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "date_in_the_past"
+        assert result["date"] == "2020-01-05"
+        assert clinic.rows.get("appointments", []) == []
+
+    def test_rescheduling_to_a_past_date_is_rejected(self, clinic):
+        clinic.rows["appointments"] = [
+            {"id": "appt-1", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-01T14:00:00+09:00", "patient_name": "Test Patient"},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "reschedule", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "preferred_date": "2020-01-05", "preferred_time": "11:00", "confidence": 0.9, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="move it to Jan 5 2020 at 11am",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "date_in_the_past"
+        assert result["date"] == "2020-01-05"
+        assert clinic.rows["appointments"][0]["scheduled_at"] == "2099-01-01T14:00:00+09:00"  # untouched
+
+
 class TestSmallTalk:
     def test_small_talk_replies_directly_without_queueing(self, clinic):
         with patch.object(scheduling, "classify_intent", return_value={"intent": "small_talk", "confidence": 0.9}), \
