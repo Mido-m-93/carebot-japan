@@ -43,7 +43,7 @@ class UpdateStatusRequest(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────
 
-@router.post("/")
+@router.post("")
 async def create_claim(
     payload: CreateClaimRequest,
     authorization: Annotated[str | None, Header()] = None,
@@ -77,7 +77,7 @@ async def create_claim(
     return {"status": "created", "claim_id": claim_id}
 
 
-@router.get("/")
+@router.get("")
 async def list_claims(
     authorization: Annotated[str | None, Header()] = None,
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,

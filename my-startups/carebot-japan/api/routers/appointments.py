@@ -206,7 +206,7 @@ def available_slots(
     return get_available_slots(db, clinic_id, date)
 
 
-@router.get("/")
+@router.get("")
 def list_appointments(
     authorization: Annotated[str | None, Header()] = None,
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,

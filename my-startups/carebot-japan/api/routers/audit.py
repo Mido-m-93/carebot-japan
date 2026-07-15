@@ -13,7 +13,7 @@ from services.auth import resolve_clinic
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
 def list_audit_log(
     authorization: Annotated[str | None, Header()] = None,
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,

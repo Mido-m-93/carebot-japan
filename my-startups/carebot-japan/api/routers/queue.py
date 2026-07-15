@@ -13,7 +13,7 @@ from routers.appointments import get_available_slots
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
 def list_queue(
     authorization: Annotated[str | None, Header()] = None,
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
