@@ -40,6 +40,7 @@ class FakeQuery:
         self.op = op  # "select" | "insert" | "update" | "delete"
         self.payload = payload
         self.filters = []  # list of (kind, field, value)
+        self.order_by = None  # (field, desc)
 
     def select(self, *_args, **_kwargs):
         return self
@@ -52,11 +53,20 @@ class FakeQuery:
         self.filters.append(("in", field, values))
         return self
 
+    def gte(self, field, value):
+        self.filters.append(("gte", field, value))
+        return self
+
+    def lte(self, field, value):
+        self.filters.append(("lte", field, value))
+        return self
+
     def limit(self, n):
         self.filters.append(("limit", None, n))
         return self
 
-    def order(self, *_args, **_kwargs):
+    def order(self, field, desc=False):
+        self.order_by = (field, desc)
         return self
 
     def execute(self):
@@ -124,13 +134,23 @@ class FakeDB:
 
         if query.op == "select":
             result = rows
+            limit_value = None
             for kind, field, value in query.filters:
                 if kind == "eq":
                     result = [r for r in result if r.get(field) == value]
                 elif kind == "in":
                     result = [r for r in result if r.get(field) in value]
+                elif kind == "gte":
+                    result = [r for r in result if r.get(field) is not None and r[field] >= value]
+                elif kind == "lte":
+                    result = [r for r in result if r.get(field) is not None and r[field] <= value]
                 elif kind == "limit":
-                    result = result[:value]
+                    limit_value = value
+            if query.order_by:
+                order_field, desc = query.order_by
+                result = sorted(result, key=lambda r: (r.get(order_field) is None, r.get(order_field)), reverse=desc)
+            if limit_value is not None:
+                result = result[:limit_value]
             return FakeResponse(list(result))
 
         if query.op == "insert":
