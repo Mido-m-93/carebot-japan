@@ -10,17 +10,19 @@ For a given clinic + raw message:
    as an after-the-fact spot-check -- this never blocks the booking
 5. Write audit log
 
-Non-appointment intents (general_inquiry, out_of_scope) still go to the
-review_queue as "pending" -- there's no appointment to auto-confirm there.
+Cancellations, reschedules, and slot conflicts resolve automatically for LINE
+patients via line_user_id correlation (see _handle_cancellation /
+_handle_reschedule / the availability check below) rather than always
+requiring a human -- but only when we can identify the right appointment
+with certainty. A genuinely ambiguous case (multiple upcoming appointments,
+a requested slot that's taken, or a reschedule with no new time given yet)
+sends the patient an automated clarifying question over LINE and waits for
+their reply, tracked via review_queue.status = "awaiting_reply"; only a
+non-LINE source, or no identifiable match at all, falls back to human review.
 
-Cancellations and slot conflicts resolve automatically for LINE patients via
-line_user_id correlation (see _handle_cancellation / the availability check
-below) rather than always requiring a human -- but only when we can identify
-the right appointment with certainty. A genuinely ambiguous case (multiple
-upcoming appointments, or a requested slot that's taken) sends the patient an
-automated clarifying question over LINE and waits for their reply, tracked
-via review_queue.status = "awaiting_reply"; only a non-LINE source, or no
-identifiable match at all, falls back to human review.
+small_talk and out_of_scope get a direct conversational reply with no review
+queue involvement. general_inquiry is answered from the clinic's real
+configured hours -- never guessed.
 
 This runs synchronously for simplicity in MVP.
 In production, steps 1-5 run inside a background job worker.
@@ -28,7 +30,13 @@ In production, steps 1-5 run inside a background job worker.
 import re
 import uuid
 from datetime import datetime, timezone, timedelta
-from services.ai import classify_intent, extract_appointment, generate_confirmation
+from services.ai import (
+    classify_intent,
+    extract_appointment,
+    generate_confirmation,
+    generate_small_talk_reply,
+    generate_inquiry_reply,
+)
 from services.sms import send_sms
 from services.db import get_db
 from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
@@ -42,6 +50,8 @@ EXTRACTION_CONFIDENCE_THRESHOLD = 0.80
 # from in one clarifying message -- keeps the LINE message short and the
 # "reply with a number" scheme unambiguous.
 MAX_CLARIFICATION_OPTIONS = 5
+
+_JP_DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"]
 
 
 def process_message(
@@ -81,7 +91,7 @@ def process_message(
     if line_user_id:
         pending = _get_pending_clarification(db, clinic_id, line_user_id)
         if pending:
-            return _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending)
+            return _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str)
 
     # ── Step 1: Intent classification ─────────────────────────
     _log_audit(db, clinic_id, "claude_extraction_run", metadata={
@@ -103,7 +113,22 @@ def process_message(
     if intent == "cancellation":
         return _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, intent_confidence)
 
-    # ── Other non-appointment intents: queue for human handling ───────────
+    # ── Reschedules: same "no human intervention" philosophy as cancellation ──
+    if intent == "reschedule":
+        return _handle_reschedule(
+            db, clinic_id, source, line_user_id, raw_message,
+            intent_confidence, today_str, clinic_name_jp,
+        )
+
+    # ── Small talk / out-of-scope: reply directly, no review queue needed ──
+    if intent in ("small_talk", "out_of_scope"):
+        return _handle_small_talk(raw_message)
+
+    # ── General inquiry: answer from the clinic's real schedule data ──────
+    if intent == "general_inquiry":
+        return _handle_inquiry(db, clinic_id, clinic, raw_message)
+
+    # ── Anything else the AI might return unexpectedly: fall back to human ──
     if intent != "appointment_request":
         _push_review_queue(
             db, clinic_id, source, raw_message,
@@ -149,9 +174,9 @@ def process_message(
         if not slot_ok:
             alternatives = [s["time"] for s in availability["slots"] if s["available"]][:3]
 
-            if not alternatives or not line_user_id:
-                # Fully booked/closed that day, or we have no channel to ask
-                # the patient directly (web/email) -- fall back to review.
+            if not line_user_id:
+                # No channel to ask the patient directly (web/email) -- fall
+                # back to review.
                 _push_review_queue(
                     db, clinic_id, source, raw_message,
                     intent, intent_confidence,
@@ -163,6 +188,11 @@ def process_message(
                     "confidence": overall_confidence,
                     "reason": "requested_slot_unavailable",
                 }
+
+            if not alternatives:
+                # Fully booked/closed that day -- tell the patient directly;
+                # a human couldn't offer anything different either.
+                return {"status": "no_alternatives_that_day", "date": extraction["preferred_date"]}
 
             options = [{"time": t} for t in alternatives]
             _create_pending_clarification(
@@ -345,6 +375,152 @@ def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, inten
     return {"status": "awaiting_cancel_choice", "options": options}
 
 
+def _handle_reschedule(
+    db, clinic_id, source, line_user_id, raw_message,
+    intent_confidence, today_str, clinic_name_jp,
+):
+    if not line_user_id:
+        # No channel to identify the patient (web/email reschedule with no
+        # account system) -- this genuinely needs a human.
+        _push_review_queue(
+            db, clinic_id, source, raw_message, "reschedule", intent_confidence,
+            extracted_data=None, field_confidences=None,
+        )
+        return {
+            "status": "queued_for_review", "intent": "reschedule",
+            "confidence": intent_confidence, "reason": "no_line_user_id",
+        }
+
+    matches = _find_upcoming_appointments(db, clinic_id, line_user_id)
+
+    if len(matches) == 0:
+        return {"status": "reschedule_no_match"}
+
+    try:
+        extraction = extract_appointment(raw_message, today_str)
+    except Exception:
+        extraction = {}
+    new_date = extraction.get("preferred_date")
+    new_time = extraction.get("preferred_time")
+
+    if len(matches) == 1:
+        appt = matches[0]
+        if new_date and new_time:
+            return _apply_reschedule(
+                db, clinic_id, source, line_user_id, appt, new_date, new_time,
+                clinic_name_jp, raw_message,
+            )
+
+        # They said "reschedule" but didn't say to when in the same message --
+        # ask for a new day/time (free text, no numbered options).
+        _create_pending_clarification(
+            db, clinic_id, line_user_id, kind="reschedule_new_time", options=[],
+            source=source, raw_input=raw_message,
+            intent="reschedule", intent_confidence=intent_confidence,
+            extra={"appointment_id": appt["id"], "old_scheduled_at": appt["scheduled_at"]},
+        )
+        return {"status": "awaiting_reschedule_time", "scheduled_at": appt["scheduled_at"]}
+
+    # Ambiguous: more than one upcoming appointment -- ask which one, rather
+    # than guessing which the patient means.
+    options = [
+        {"appointment_id": a["id"], "scheduled_at": a["scheduled_at"]}
+        for a in matches[:MAX_CLARIFICATION_OPTIONS]
+    ]
+    _create_pending_clarification(
+        db, clinic_id, line_user_id, kind="reschedule_choice", options=options,
+        source=source, raw_input=raw_message,
+        intent="reschedule", intent_confidence=intent_confidence,
+        extra={"new_date": new_date, "new_time": new_time},
+    )
+    return {"status": "awaiting_reschedule_choice", "options": options}
+
+
+def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_time, clinic_name_jp, raw_message):
+    availability = get_available_slots(db, clinic_id, new_date)
+    requested_slot = next(
+        (s for s in availability["slots"] if s["time"] == new_time),
+        None,
+    )
+    slot_ok = availability["is_open"] and requested_slot is not None and requested_slot["available"]
+
+    if not slot_ok:
+        alternatives = [s["time"] for s in availability["slots"] if s["available"]][:3]
+
+        if not alternatives:
+            return {"status": "no_alternatives_that_day", "date": new_date}
+
+        options = [{"time": t} for t in alternatives]
+        _create_pending_clarification(
+            db, clinic_id, line_user_id, kind="reschedule_alternative_time", options=options,
+            source=source, raw_input=raw_message, intent="reschedule", intent_confidence=1.0,
+            extra={
+                "appointment_id": appt["id"],
+                "old_scheduled_at": appt["scheduled_at"],
+                "date": new_date,
+            },
+        )
+        return {
+            "status": "awaiting_reschedule_alternative",
+            "date": new_date,
+            "alternatives": alternatives,
+        }
+
+    old_scheduled_at = appt["scheduled_at"]
+    new_scheduled_at = f"{new_date}T{new_time}:00+09:00"
+    db.table("appointments").update({"scheduled_at": new_scheduled_at}).eq("id", appt["id"]).execute()
+    _log_audit(db, clinic_id, "appointment_rescheduled", record_id=appt["id"], metadata={
+        "source": source, "auto": True,
+        "old_scheduled_at": old_scheduled_at, "new_scheduled_at": new_scheduled_at,
+    })
+    return {
+        "status": "rescheduled",
+        "appointment_id": appt["id"],
+        "old_scheduled_at": old_scheduled_at,
+        "new_scheduled_at": new_scheduled_at,
+    }
+
+
+def _handle_small_talk(raw_message: str) -> dict:
+    try:
+        reply = generate_small_talk_reply(raw_message)
+    except Exception:
+        reply = None
+    return {"status": "small_talk", "reply_text": reply}
+
+
+def _handle_inquiry(db, clinic_id, clinic, raw_message: str) -> dict:
+    clinic_info = _format_clinic_info(db, clinic_id, clinic)
+    try:
+        reply = generate_inquiry_reply(raw_message, clinic_info)
+    except Exception:
+        reply = None
+    return {"status": "inquiry_answered", "reply_text": reply}
+
+
+def _format_clinic_info(db, clinic_id, clinic) -> str:
+    name = clinic.get("name_jp") or clinic["name"]
+    rows = (
+        db.table("clinic_schedules")
+        .select("day_of_week, open_time, close_time")
+        .eq("clinic_id", clinic_id)
+        .order("day_of_week")
+        .execute()
+    )
+    schedules = rows.data or []
+    if not schedules:
+        return (
+            f"Clinic name: {name}\n"
+            "Opening hours: not configured -- do not guess, tell the patient to call the clinic."
+        )
+
+    lines = [f"Clinic name: {name}", "Opening hours:"]
+    for s in schedules:
+        day_name = _JP_DAY_NAMES[s["day_of_week"]]
+        lines.append(f"  {day_name}: {s['open_time']}-{s['close_time']}")
+    return "\n".join(lines)
+
+
 def _create_pending_clarification(
     db, clinic_id, line_user_id, *, kind, options, source, raw_input,
     intent, intent_confidence, extra=None,
@@ -383,15 +559,51 @@ def _get_pending_clarification(db, clinic_id, line_user_id):
     return rows.data[0] if rows.data else None
 
 
-def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending):
+def _mark_clarification_resolved(db, pending_id, choice_idx=None):
+    resolution = {"chosen_index": choice_idx} if choice_idx is not None else {}
+    db.table("review_queue").update({
+        "status": "resolved",
+        "resolved_at": datetime.now(timezone.utc).isoformat(),
+        "resolution": resolution,
+    }).eq("id", pending_id).execute()
+
+
+def _get_clinic_name_jp(db, clinic_id) -> str:
+    clinic_rows = db.table("clinics").select("name, name_jp").eq("id", clinic_id).limit(1).execute()
+    clinic_row = clinic_rows.data[0] if clinic_rows.data else {}
+    return clinic_row.get("name_jp") or clinic_row.get("name", "")
+
+
+def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str):
     """
-    The patient's reply to a clarifying question. Expects a plain number
-    ("1", "2", ...) picking one of the options they were offered -- far more
-    reliable to parse than free-text date references in mixed JP/EN input.
+    The patient's reply to a clarifying question. Most kinds expect a plain
+    number ("1", "2", ...) picking one of the options they were offered --
+    far more reliable to parse than free-text date references in mixed
+    JP/EN input. "reschedule_new_time" is the exception: there are no
+    numbered options, it's free-text giving a new day/time.
     """
     context = pending.get("extracted_data") or {}
     options = context.get("options", [])
     kind = context.get("kind")
+
+    if kind == "reschedule_new_time":
+        try:
+            extraction = extract_appointment(raw_message, today_str)
+        except Exception:
+            extraction = {}
+        new_date = extraction.get("preferred_date")
+        new_time = extraction.get("preferred_time")
+        if not (new_date and new_time):
+            # Still couldn't understand -- leave the row open and re-ask.
+            return {"status": "clarification_unclear", "kind": kind, "options": []}
+
+        _mark_clarification_resolved(db, pending["id"])
+        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
+        appt = {"id": context["appointment_id"], "scheduled_at": context["old_scheduled_at"]}
+        return _apply_reschedule(
+            db, clinic_id, source, line_user_id, appt, new_date, new_time,
+            clinic_name_jp, raw_message,
+        )
 
     match = re.search(r"\d+", raw_message)
     choice_idx = int(match.group()) - 1 if match else -1
@@ -402,13 +614,9 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         return {"status": "clarification_unclear", "kind": kind, "options": options}
 
     chosen = options[choice_idx]
-    db.table("review_queue").update({
-        "status": "resolved",
-        "resolved_at": datetime.now(timezone.utc).isoformat(),
-        "resolution": {"chosen_index": choice_idx},
-    }).eq("id", pending["id"]).execute()
 
     if kind == "cancel_choice":
+        _mark_clarification_resolved(db, pending["id"], choice_idx)
         appt_id = chosen["appointment_id"]
         db.table("appointments").update({"status": "cancelled"}).eq("id", appt_id).execute()
         _log_audit(db, clinic_id, "appointment_cancelled", record_id=appt_id, metadata={
@@ -421,15 +629,45 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         }
 
     if kind == "alternative_time":
-        clinic_rows = db.table("clinics").select("name, name_jp").eq("id", clinic_id).limit(1).execute()
-        clinic_row = clinic_rows.data[0] if clinic_rows.data else {}
-        clinic_name_jp = clinic_row.get("name_jp") or clinic_row.get("name", "")
-
+        _mark_clarification_resolved(db, pending["id"], choice_idx)
+        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
         extraction = {**context.get("extraction", {}), "preferred_time": chosen["time"]}
         original_raw_message = context.get("original_raw_message", raw_message)
         return _create_appointment(
             db, clinic_id, source=source, extraction=extraction, raw_message=original_raw_message,
             patient_phone=None, line_user_id=line_user_id, clinic_name_jp=clinic_name_jp,
+        )
+
+    if kind == "reschedule_choice":
+        _mark_clarification_resolved(db, pending["id"], choice_idx)
+        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
+        appt = {"id": chosen["appointment_id"], "scheduled_at": chosen["scheduled_at"]}
+        new_date = context.get("new_date")
+        new_time = context.get("new_time")
+
+        if new_date and new_time:
+            return _apply_reschedule(
+                db, clinic_id, source, line_user_id, appt, new_date, new_time,
+                clinic_name_jp, raw_message,
+            )
+
+        _create_pending_clarification(
+            db, clinic_id, line_user_id, kind="reschedule_new_time", options=[],
+            source=source, raw_input=raw_message,
+            intent="reschedule", intent_confidence=1.0,
+            extra={"appointment_id": appt["id"], "old_scheduled_at": appt["scheduled_at"]},
+        )
+        return {"status": "awaiting_reschedule_time", "scheduled_at": appt["scheduled_at"]}
+
+    if kind == "reschedule_alternative_time":
+        _mark_clarification_resolved(db, pending["id"], choice_idx)
+        clinic_name_jp = _get_clinic_name_jp(db, clinic_id)
+        appt = {"id": context["appointment_id"], "scheduled_at": context.get("old_scheduled_at")}
+        new_date = context["date"]
+        new_time = chosen["time"]
+        return _apply_reschedule(
+            db, clinic_id, source, line_user_id, appt, new_date, new_time,
+            clinic_name_jp, raw_message,
         )
 
     return {"status": "clarification_unclear", "kind": kind, "options": options}

@@ -156,18 +156,47 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
         options_text = _numbered_time_options(result["date"], [{"time": t} for t in result["alternatives"]])
         reply = f"ご希望の時間は既にご予約が入っております。以下よりご希望の時間の番号を返信してください。\n\n{options_text}"
 
+    elif status == "rescheduled":
+        old_when = _format_jp_datetime(result["old_scheduled_at"])
+        new_when = _format_jp_datetime(result["new_scheduled_at"])
+        reply = f"ご予約を変更いたしました。\n変更前: {old_when}\n変更後: {new_when}"
+
+    elif status == "reschedule_no_match":
+        reply = "現在確認できるご予約が見つかりませんでした。恐れ入りますが、クリニックまで直接お問い合わせください。"
+
+    elif status == "awaiting_reschedule_choice":
+        options_text = _numbered_appointment_options(result["options"])
+        reply = f"複数のご予約が見つかりました。変更するものの番号を返信してください。\n\n{options_text}"
+
+    elif status == "awaiting_reschedule_time":
+        when = _format_jp_datetime(result["scheduled_at"]) if result.get("scheduled_at") else ""
+        reply = f"ご予約（{when}）の変更を承ります。ご希望の新しい日時を教えてください。"
+
+    elif status == "awaiting_reschedule_alternative":
+        options_text = _numbered_time_options(result["date"], [{"time": t} for t in result["alternatives"]])
+        reply = f"ご希望の時間は既にご予約が入っております。以下よりご希望の時間の番号を返信してください。\n\n{options_text}"
+
+    elif status == "no_alternatives_that_day":
+        date_label = _format_jp_datetime(f"{result['date']}T00:00:00+09:00").split(" ")[0]
+        reply = f"{date_label}は空きがございません。恐れ入りますが、別の日をお知らせください。"
+
     elif status == "clarification_unclear":
-        if result.get("kind") == "cancel_choice":
+        if result.get("kind") in ("cancel_choice", "reschedule_choice"):
             options_text = _numbered_appointment_options(result["options"])
             reply = f"番号でお答えください。\n\n{options_text}"
-        elif result.get("kind") == "alternative_time":
+        elif result.get("kind") in ("alternative_time", "reschedule_alternative_time"):
             options_text = "\n".join(f"{i}. {o['time']}" for i, o in enumerate(result["options"], start=1))
             reply = f"番号でお答えください。\n\n{options_text}"
+        elif result.get("kind") == "reschedule_new_time":
+            reply = "日時がわかりませんでした。ご希望の日時を教えてください（例：7月20日の15時）。"
         else:
             reply = "申し訳ございません、もう一度お試しください。"
 
     elif status == "plan_limit_reached":
         reply = "現在、月間のご予約上限に達しております。恐れ入りますが、クリニックまで直接お問い合わせください。"
+
+    elif status in ("small_talk", "inquiry_answered"):
+        reply = result.get("reply_text") or "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
 
     elif status == "queued_for_review":
         reply = "ご連絡ありがとうございます。内容を確認の上、担当者よりご連絡いたします。"

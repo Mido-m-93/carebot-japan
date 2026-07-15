@@ -10,7 +10,7 @@ Classify the intent of the incoming patient message. Messages may be in Japanese
 Return ONLY valid JSON matching this exact schema. No commentary, no markdown.
 
 {
-  "intent": "appointment_request" | "cancellation" | "reschedule" | "general_inquiry" | "out_of_scope",
+  "intent": "appointment_request" | "cancellation" | "reschedule" | "general_inquiry" | "small_talk" | "out_of_scope",
   "confidence": 0.0,
   "reason": "one sentence explanation in English"
 }
@@ -18,17 +18,43 @@ Return ONLY valid JSON matching this exact schema. No commentary, no markdown.
 Intent definitions:
 - appointment_request: Patient wants to book a new appointment. Japanese signals: 予約したい、予約をお願い、診ていただきたい、受診したい、appointment、make a reservation
 - cancellation: Patient wants to cancel an existing appointment. Japanese signals: キャンセル、取り消し、予約をキャンセル
-- reschedule: Patient wants to move an existing appointment. Japanese signals: 変更したい、日程変更
-- general_inquiry: Question about the clinic (hours, location, fees). Japanese signals: 診療時間、場所、費用
-- out_of_scope: Unrelated message or cannot be determined
+- reschedule: Patient wants to move an existing appointment to a different time. Japanese signals: 変更したい、日程変更、時間を変えたい
+- general_inquiry: Factual question about the clinic (hours, location, fees, what to bring, etc.). Japanese signals: 診療時間、場所、費用
+- small_talk: Greetings, thanks, pleasantries, or casual chat with no scheduling/informational request. Japanese signals: こんにちは、ありがとう、お疲れ様
+- out_of_scope: Anything else -- unrelated, spam, or a request this clinic assistant cannot help with (e.g. medical advice, emergencies, unrelated businesses)
 
 Examples:
 - "来週の水曜日に予約したいです" → appointment_request, confidence 0.95
 - "明日の予約をキャンセルしたい" → cancellation, confidence 0.95
+- "時間を3時に変更したい" → reschedule, confidence 0.95
 - "診療時間を教えてください" → general_inquiry, confidence 0.95
 - "I'd like to book an appointment" → appointment_request, confidence 0.95
+- "ありがとうございます！" → small_talk, confidence 0.9
+- "hi there" → small_talk, confidence 0.9
+- "こんにちは" → small_talk, confidence 0.9
 
 Use confidence < 0.75 only when the message is truly ambiguous."""
+
+SMALL_TALK_SYSTEM = """You are the friendly front-desk chat assistant for a Japanese medical clinic,
+speaking with a patient over LINE. Reply warmly and briefly (1-2 short sentences) to their greeting,
+thanks, or casual remark. Match the language they wrote in (Japanese or English).
+
+Stay strictly in the front-desk-receptionist register: warm and human, but never give medical
+advice, never diagnose, never discuss symptoms or treatment. If they mention anything symptom-like
+or medical, gently suggest they book an appointment or call the clinic directly instead of
+responding to the medical content itself.
+
+Return ONLY the reply text. No JSON, no commentary, no markdown."""
+
+INQUIRY_SYSTEM = """You are the front-desk assistant for a Japanese medical clinic, answering a
+patient's factual question over LINE. You will be given the clinic's real opening hours and name --
+use ONLY that information. Match the language the patient wrote in (Japanese or English).
+
+If the question asks something you were not given real information for (fees, specific doctors,
+insurance, parking, etc.), say so honestly and suggest they call the clinic directly -- never
+invent an answer.
+
+Return ONLY the reply text. No JSON, no commentary, no markdown."""
 
 EXTRACTION_SYSTEM = """You are a Japanese medical clinic scheduling assistant.
 Extract appointment booking details from the patient message.
@@ -102,6 +128,31 @@ def extract_appointment(message: str, today_jst: str) -> dict:
         ],
     )
     return _parse_json(response.choices[0].message.content)
+
+
+def generate_small_talk_reply(message: str) -> str:
+    response = _client().chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        max_tokens=128,
+        messages=[
+            {"role": "system", "content": SMALL_TALK_SYSTEM},
+            {"role": "user", "content": message},
+        ],
+    )
+    return response.choices[0].message.content.strip()
+
+
+def generate_inquiry_reply(message: str, clinic_info: str) -> str:
+    user_content = f"Clinic information:\n{clinic_info}\n\nPatient question:\n{message}"
+    response = _client().chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        max_tokens=256,
+        messages=[
+            {"role": "system", "content": INQUIRY_SYSTEM},
+            {"role": "user", "content": user_content},
+        ],
+    )
+    return response.choices[0].message.content.strip()
 
 
 def generate_confirmation(
