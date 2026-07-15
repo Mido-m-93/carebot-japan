@@ -64,11 +64,17 @@ MAX_CLARIFICATION_OPTIONS = 5
 _JP_DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"]
 
 _JAPANESE_SCRIPT_RE = re.compile("[぀-ヿ一-鿿]")
+_LANGUAGE_SIGNAL_RE = re.compile("[A-Za-z぀-ヿ一-鿿]")
 
 
 def _detect_lang(text: str) -> str:
     # "ja" if the message contains any Japanese script, else "en".
     return "ja" if _JAPANESE_SCRIPT_RE.search(text or "") else "en"
+
+
+def _has_language_signal(text: str) -> bool:
+    """False for a bare numeric reply ("1", "2") -- true for any real text."""
+    return bool(_LANGUAGE_SIGNAL_RE.search(text or ""))
 
 
 def process_message(
@@ -684,14 +690,17 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
     exception: there are no numbered options, it's free-text giving a new
     day/time (or the missing booking details).
 
-    The language of the reply itself isn't a reliable signal (a bare "1"
-    carries none), so we use whatever language the clarification was
-    originally asked in, stored on the pending row.
+    A bare numeric reply carries no language signal of its own, so it uses
+    whatever language the clarification was originally asked in (stored on
+    the pending row). Real text DOES carry a signal, though -- if the
+    patient switches languages mid-conversation, trust what they're typing
+    right now over the stored value.
     """
     context = pending.get("extracted_data") or {}
     options = context.get("options", [])
     kind = context.get("kind")
-    lang = context.get("lang") or _detect_lang(raw_message)
+    stored_lang = context.get("lang")
+    lang = _detect_lang(raw_message) if _has_language_signal(raw_message) else (stored_lang or _detect_lang(raw_message))
 
     if kind == "booking_details":
         try:

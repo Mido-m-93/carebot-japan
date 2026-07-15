@@ -707,3 +707,32 @@ class TestBilingualLanguageDetection:
 
         assert result["status"] == "auto_cancelled"
         assert result["lang"] == "en"
+
+    def test_free_text_reply_switches_language_if_the_patient_does(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": None, "preferred_date": None, "preferred_time": None,
+                 "visit_reason": None, "confidence": 0.0, "field_confidences": {},
+             }):
+            first = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="予約をお願いします",
+                source="line", line_user_id="U123",
+            )
+        assert first["status"] == "awaiting_booking_details"
+        assert first["lang"] == "ja"
+
+        # Unlike a bare number, this reply is real text -- it carries its own
+        # language signal and should win over the clarification's stored "ja".
+        with patch.object(scheduling, "classify_intent", side_effect=AssertionError("should not be called")), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "preferred_date": "2099-01-02", "preferred_time": "11:00",
+                 "visit_reason": "check-up", "confidence": 0.9, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="Jan 2nd at 11am, a check-up",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "confirmed"
+        assert result["lang"] == "en"
