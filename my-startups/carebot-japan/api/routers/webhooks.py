@@ -12,7 +12,6 @@ and process async, then send the reply via the Line reply API.
 """
 import hashlib
 import hmac
-import html
 import os
 import base64
 import re
@@ -20,7 +19,7 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from services.db import get_db
 from services.scheduling import process_message
-from services.email import send_appointment_confirmation
+from services.email import send_appointment_confirmation, send_plain_email
 from services.line import send_line_reply
 from services.ai import generate_confirmation
 from services.limiter import limiter
@@ -148,27 +147,22 @@ def _missing_booking_fields_prompt(missing: list[str], lang: str) -> str:
     return f"ご予約を承るため、以下を教えてください。\n{lines}"
 
 
-def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
-    """Run the scheduling pipeline, then push a reply back to the patient in LINE."""
-    result = process_message(
-        clinic_id=clinic_id,
-        raw_message=text,
-        source="line",
-        line_user_id=user_id or None,
-    )
-    if not user_id:
-        return
-
-    lang = result.get("lang", "ja")
-
+def _resolve_clinic_name(clinic_id: str, lang: str) -> str:
     db = get_db()
     clinic_rows = db.table("clinics").select("name, name_jp").eq("id", clinic_id).limit(1).execute()
     clinic_row = clinic_rows.data[0] if clinic_rows.data else {}
     if lang == "en":
-        clinic_name = clinic_row.get("name") or clinic_row.get("name_jp") or ""
-    else:
-        clinic_name = clinic_row.get("name_jp") or clinic_row.get("name") or ""
+        return clinic_row.get("name") or clinic_row.get("name_jp") or ""
+    return clinic_row.get("name_jp") or clinic_row.get("name") or ""
 
+
+def _compose_reply_text(result: dict, clinic_name: str) -> str:
+    """
+    Turn a scheduling.process_message() result into the bilingual reply
+    text a patient should see -- shared by the LINE and email channels so
+    the same outcome reads the same way regardless of which one they used.
+    """
+    lang = result.get("lang", "ja")
     status = result.get("status")
 
     if status == "confirmed":
@@ -298,6 +292,22 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
         else:
             reply = "申し訳ございません。処理中にエラーが発生しました。お手数ですがクリニックまでお電話ください。"
 
+    return reply
+
+
+def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
+    """Run the scheduling pipeline, then push a reply back to the patient in LINE."""
+    result = process_message(
+        clinic_id=clinic_id,
+        raw_message=text,
+        source="line",
+        line_user_id=user_id or None,
+    )
+    if not user_id:
+        return
+
+    clinic_name = _resolve_clinic_name(clinic_id, result.get("lang", "ja"))
+    reply = _compose_reply_text(result, clinic_name)
     send_line_reply(user_id, reply)
 
 
@@ -383,41 +393,34 @@ def _extract_email(raw: str) -> str:
     return match.group(1).strip() if match else raw.strip()
 
 
-def _send_ack(patient_email: str, patient_name: str, result: dict):
-    """Send an acknowledgment email back to the patient."""
-    status = result.get("status", "")
+def _send_ack(clinic_id: str, patient_email: str, patient_name: str, result: dict):
+    """Send a reply email back to the patient reflecting the scheduling outcome."""
+    lang = result.get("lang", "ja")
+    clinic_name = _resolve_clinic_name(clinic_id, lang)
+    status = result.get("status")
 
     if status == "confirmed":
         send_appointment_confirmation(
             to_email=patient_email,
-            patient_name=patient_name or "Dear patient",
-            clinic_name="新宿デモクリニック",
+            patient_name=result.get("patient_name") or patient_name or "Patient",
+            clinic_name=clinic_name,
             preferred_date=result.get("scheduled_at", "")[:10] if result.get("scheduled_at") else None,
             preferred_time=result.get("scheduled_at", "")[11:16] if result.get("scheduled_at") else None,
             visit_reason=None,
             is_first_visit=None,
-            lang="en",
+            lang=lang,
         )
-    else:
-        # Queued for review — send a "we received it" reply
-        import resend, os
-        resend.api_key = os.getenv("RESEND_API_KEY", "")
-        if not resend.api_key or "your_api_key" in resend.api_key:
-            return
-        resend.Emails.send({
-            "from": os.getenv("EMAIL_FROM", "onboarding@resend.dev"),
-            "to": [patient_email.lower().strip()],
-            "subject": "We received your appointment request — 新宿デモクリニック",
-            "html": f"""
-            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-              <h2 style="color:#0f766e">新宿デモクリニック</h2>
-              <p>Dear {html.escape(patient_name) if patient_name else 'Patient'},</p>
-              <p>Thank you for your email. We have received your appointment request and will confirm the details shortly.</p>
-              <p style="color:#6b7280;font-size:13px">ご連絡ありがとうございます。予約リクエストを受け付けました。確認後にご連絡いたします。</p>
-              <p style="font-size:12px;color:#9ca3af;margin-top:24px">Powered by CareBot Japan</p>
-            </div>
-            """,
-        })
+        return
+
+    reply_text = _compose_reply_text(result, clinic_name)
+    subject = f"Regarding your appointment — {clinic_name}" if lang == "en" else f"ご予約について — {clinic_name}"
+    send_plain_email(
+        to_email=patient_email,
+        subject=subject,
+        body_text=reply_text,
+        clinic_name=clinic_name,
+        lang=lang,
+    )
 
 
 @router.post("/email")
@@ -440,12 +443,16 @@ async def email_webhook(request: Request, background_tasks: BackgroundTasks):
     sender      = str(form.get("sender") or "")
     recipient_raw = str(form.get("recipient") or form.get("To") or form.get("to") or "")
     subject     = str(form.get("subject") or form.get("Subject") or "")
+    stripped_text = str(form.get("stripped-text") or "")
     body_plain  = str(form.get("body-plain") or "")
-    body_html   = str(form.get("stripped-text") or form.get("body-plain") or "")
 
-    patient_email = _extract_email(from_raw) or sender
+    patient_email = (_extract_email(from_raw) or sender).lower().strip()
     recipient_email = _extract_email(recipient_raw)
-    body = body_plain or body_html
+    # Prefer Mailgun's quote-stripped body -- a threaded reply's raw
+    # body-plain still contains the quoted original message, which would
+    # otherwise confuse clarification parsing (e.g. a stray digit or date
+    # from the quoted text getting picked up as the patient's answer).
+    body = stripped_text or body_plain
 
     if not patient_email or not body.strip():
         return {"status": "ignored", "reason": "no sender or empty body"}
@@ -473,8 +480,9 @@ async def email_webhook(request: Request, background_tasks: BackgroundTasks):
             raw_message=message_text,
             source="email",
             patient_phone=None,
+            line_user_id=patient_email,
         )
-        _send_ack(patient_email, patient_name, result)
+        _send_ack(clinic_id, patient_email, patient_name, result)
 
     background_tasks.add_task(process_and_reply)
     return {"status": "ok", "message": "Email received, processing in background"}

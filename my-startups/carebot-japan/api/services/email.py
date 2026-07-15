@@ -126,3 +126,69 @@ def send_appointment_confirmation(
     except Exception as e:
         print(f"[email] Failed to send: {e}")
         return None
+
+
+def send_plain_email(
+    *,
+    to_email: str,
+    subject: str,
+    body_text: str,
+    clinic_name: str,
+    lang: str = "en",
+) -> str | None:
+    """
+    Branded email whose body is plain reply text -- the same bilingual
+    text the LINE channel sends for cancellations, reschedules, clarifying
+    questions, etc. Used for every scheduling outcome except a fresh
+    confirmation, which gets the richer send_appointment_confirmation
+    template instead.
+    """
+    client = _client()
+    if not client:
+        print("[email] RESEND_API_KEY not set — skipping email")
+        return None
+
+    from_address = os.getenv("EMAIL_FROM", "onboarding@resend.dev")
+    safe_clinic_name = _html.escape(clinic_name) if clinic_name else clinic_name
+    safe_body = _html.escape(body_text).replace("\n", "<br>")
+
+    html = f"""
+<!DOCTYPE html>
+<html lang="{lang}">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+
+        <tr><td style="background:#0f766e;padding:24px 32px">
+          <p style="margin:0;color:#fff;font-size:18px;font-weight:600">{safe_clinic_name}</p>
+        </td></tr>
+
+        <tr><td style="padding:28px 32px 24px">
+          <p style="margin:0;font-size:14px;color:#374151;line-height:1.7">{safe_body}</p>
+        </td></tr>
+
+        <tr><td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #f3f4f6">
+          <p style="margin:0;font-size:11px;color:#9ca3af">Powered by CareBot Japan</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+"""
+
+    try:
+        response = resend.Emails.send({
+            "from": from_address,
+            "to": [to_email.lower().strip()],
+            "subject": subject,
+            "html": html,
+        })
+        print(f"[email] Sent to {to_email}, id={response.get('id')}")
+        return response.get("id")
+    except Exception as e:
+        print(f"[email] Failed to send: {e}")
+        return None
