@@ -108,6 +108,18 @@ def _numbered_time_options(date: str, options: list[dict]) -> str:
     return f"{date_label}\n{lines}"
 
 
+_MISSING_BOOKING_FIELD_LABELS_JP = {
+    "date": "ご希望の日付",
+    "time": "ご希望の時間",
+    "visit_reason": "受診理由（どのようなご用件か）",
+}
+
+
+def _missing_booking_fields_prompt(missing: list[str]) -> str:
+    lines = "\n".join(f"・{_MISSING_BOOKING_FIELD_LABELS_JP[m]}" for m in missing)
+    return f"ご予約を承るため、以下を教えてください。\n{lines}"
+
+
 def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
     """Run the scheduling pipeline, then push a reply back to the patient in LINE."""
     result = process_message(
@@ -140,6 +152,9 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
             reply = f"{greeting}、ご予約を承りました。日時の詳細はクリニックまでお問い合わせください。"
         if result.get("flagged_for_review"):
             reply += "\n\n※内容を確認の上、担当者よりご連絡する場合がございます。"
+
+    elif status == "awaiting_booking_details":
+        reply = _missing_booking_fields_prompt(result["missing"])
 
     elif status == "auto_cancelled":
         when = _format_jp_datetime(result["scheduled_at"]) if result.get("scheduled_at") else ""
