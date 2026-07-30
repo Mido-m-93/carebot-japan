@@ -85,3 +85,34 @@ class TestBookPastDatetimeGuard:
         assert res.status_code == 200
         assert res.json()["status"] == "confirmed"
         assert len(clinic.rows.get("appointments", [])) == 1
+
+
+class TestGetAvailableSlotsExcludesPastTimes:
+    """
+    Regression test: a patient requesting a taken slot late in the day was
+    being offered that same morning's untaken slots as "available"
+    alternatives -- get_available_slots only checked whether a slot was
+    booked, never whether it had already passed for today.
+    """
+
+    def test_todays_past_slots_are_marked_unavailable(self, appointments_app, clinic, monkeypatch):
+        _app, appointments_module = appointments_app
+        monkeypatch.setattr(appointments_module, "datetime", _frozen_now(datetime(2026, 7, 30, 16, 55, tzinfo=JST)))
+
+        result = appointments_module.get_available_slots(clinic, CLINIC_ID, "2026-07-30")
+
+        by_time = {s["time"]: s["available"] for s in result["slots"]}
+        assert by_time["09:00"] is False
+        assert by_time["09:15"] is False
+        assert by_time["09:30"] is False
+        # 17:00 hasn't happened yet at 16:55 -- must still be offered.
+        assert by_time["17:00"] is True
+
+    def test_future_dates_are_unaffected(self, appointments_app, clinic, monkeypatch):
+        _app, appointments_module = appointments_app
+        monkeypatch.setattr(appointments_module, "datetime", _frozen_now(datetime(2026, 7, 30, 16, 55, tzinfo=JST)))
+
+        result = appointments_module.get_available_slots(clinic, CLINIC_ID, "2026-07-31")
+
+        by_time = {s["time"]: s["available"] for s in result["slots"]}
+        assert by_time["09:00"] is True
