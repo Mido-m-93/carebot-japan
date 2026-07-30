@@ -50,6 +50,7 @@ from services.ai import (
 from services.sms import send_sms
 from services.db import get_db
 from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
+from services.booking_time import is_past_datetime
 from routers.appointments import get_available_slots
 
 # Thresholds for automatic processing vs human review
@@ -304,27 +305,6 @@ def _missing_booking_fields(extraction: dict) -> list[str]:
 def _get_clinic(db, clinic_id) -> dict:
     rows = db.table("clinics").select("id, name, name_jp, tier").eq("id", clinic_id).limit(1).execute()
     return rows.data[0] if rows.data else {"id": clinic_id}
-
-
-def is_past_datetime(date_str: str, time_str: str | None, now_jst: datetime) -> bool:
-    """
-    True if the requested date+time has already passed in JST. A date-only
-    comparison isn't enough -- "today" stops being bookable the moment the
-    requested time itself passes, e.g. requesting today at 09:00 when it's
-    currently 16:00 is exactly as much in the past as requesting yesterday.
-    """
-    today_str = now_jst.strftime("%Y-%m-%d")
-    if date_str < today_str:
-        return True
-    if date_str > today_str or not time_str:
-        return False
-    try:
-        requested = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M").replace(
-            tzinfo=timezone(timedelta(hours=9))
-        )
-    except ValueError:
-        return False
-    return requested < now_jst
 
 
 def _book_appointment_flow(

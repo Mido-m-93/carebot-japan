@@ -8,7 +8,7 @@ from services.calendar import push_appointment_to_calendar
 from services.auth import resolve_clinic, require_own_clinic
 from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
 from services.limiter import limiter
-from services.scheduling import is_past_datetime
+from services.booking_time import is_past_datetime
 from datetime import datetime, date, time, timedelta, timezone
 
 router = APIRouter()
