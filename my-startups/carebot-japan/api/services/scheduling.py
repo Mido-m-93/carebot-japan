@@ -306,7 +306,7 @@ def _get_clinic(db, clinic_id) -> dict:
     return rows.data[0] if rows.data else {"id": clinic_id}
 
 
-def _is_past_datetime(date_str: str, time_str: str | None, now_jst: datetime) -> bool:
+def is_past_datetime(date_str: str, time_str: str | None, now_jst: datetime) -> bool:
     """
     True if the requested date+time has already passed in JST. A date-only
     comparison isn't enough -- "today" stops being bookable the moment the
@@ -339,7 +339,7 @@ def _book_appointment_flow(
     the booking-details clarification once the patient has filled in what
     was missing.
     """
-    if _is_past_datetime(extraction["preferred_date"], extraction.get("preferred_time"), now_jst):
+    if is_past_datetime(extraction["preferred_date"], extraction.get("preferred_time"), now_jst):
         # A date that's already gone isn't "fully booked" -- say so plainly
         # instead of running the normal availability check against it.
         return {"status": "date_in_the_past", "date": extraction["preferred_date"], "lang": lang}
@@ -561,7 +561,7 @@ def _handle_reschedule(
 
 
 def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_time, raw_message, today_str, now_jst, lang):
-    if _is_past_datetime(new_date, new_time, now_jst):
+    if is_past_datetime(new_date, new_time, now_jst):
         # A date that's already gone isn't "fully booked" -- say so plainly
         # instead of running the normal availability check against it.
         return {"status": "date_in_the_past", "date": new_date, "lang": lang}
