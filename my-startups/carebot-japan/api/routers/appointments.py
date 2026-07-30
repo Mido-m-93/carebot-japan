@@ -186,13 +186,17 @@ def get_available_slots(db, clinic_id: str, date_str: str) -> dict:
             t = row["scheduled_at"][11:16]  # "HH:MM"
             booked_times.add(t)
 
-    # Generate all slots
+    # Generate all slots. A slot already booked OR already passed (for
+    # today's date) is not available -- otherwise a same-day request late in
+    # the day gets offered its own morning as an "available alternative".
+    now_jst = datetime.now(tz=timezone(timedelta(hours=9)))
     slots = []
     current = datetime.combine(target, time(open_h, open_m))
     end     = datetime.combine(target, time(close_h, close_m))
     while current < end:
         slot_str = current.strftime("%H:%M")
-        slots.append({"time": slot_str, "available": slot_str not in booked_times})
+        is_free = slot_str not in booked_times and not is_past_datetime(date_str, slot_str, now_jst)
+        slots.append({"time": slot_str, "available": is_free})
         current += timedelta(minutes=slot_min)
 
     return {
