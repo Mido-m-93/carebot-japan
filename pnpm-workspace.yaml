@@ -1,8 +1,6 @@
 packages:
   - "apps/*"
   - "my-startups/carebot-japan/web"
-  - "my-startups/japan-unlocked"
-  - "my-startups/kanso-templates"
   - "packages/*"
 allowBuilds:
   '@sentry/cli': false

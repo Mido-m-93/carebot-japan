@@ -26,7 +26,9 @@ If you are reading this file from inside a standalone business repo (not a Start
 
 ### Exception: pre-existing businesses registered from outside `businesses/`
 
-Mido's 3 real businesses (JapanUnlocked, Kanso Templates, CareBot Japan) are registered as `startups` rows in Supabase (see `supabase/migrations/20260706000000_seed_real_businesses.sql`), but their code lives at `my-startups/<slug>/` in the parent repo, not under `businesses/<slug>/` — they were hand-built before being wired into this framework and CareBot Japan is already deployed with real customers. **Do not copy or move their code into `businesses/`.** When the CTO/CMO/COO agents need to work on these three, edit the code in place at `my-startups/<slug>/`. New businesses the CEO selects from scratch still follow the normal `businesses/<slug>/` pattern above.
+Mido's real business, CareBot Japan, is registered as a `startups` row in Supabase (see `supabase/migrations/20260706000000_seed_real_businesses.sql`), but its code lives at `my-startups/carebot-japan/` in the parent repo, not under `businesses/<slug>/` — it was hand-built before being wired into this framework and is already deployed with real customers. **Do not copy or move its code into `businesses/`.** When the CTO/CMO/COO agents need to work on it, edit the code in place at `my-startups/carebot-japan/`. New businesses the CEO selects from scratch still follow the normal `businesses/<slug>/` pattern above.
+
+JapanUnlocked and Kanso Templates were part of the original 3-business plan but were shut down by Mido (2026-07-29, not a good niche fit) — their `startups` rows should be marked inactive/pivoted in Supabase (not `active`) so the daily CEO/CXO heartbeats stop proposing experiments for them. Do not resurrect their code or treat them as live businesses unless Mido explicitly asks.
 
 ### First-time setup for a new instance
 If `.env.local` does not exist and `git remote get-url origin` does NOT point to `Robo-Co-op/StartupRobos`, the operator is setting up a fresh instance. Direct them to run:

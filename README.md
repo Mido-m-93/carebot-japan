@@ -4,7 +4,7 @@ AI-powered appointment scheduling for Japanese clinics via LINE and web. Live in
 
 **Stack:** Next.js · FastAPI · Supabase · Groq (AI) · Stripe (billing) · LINE Messaging API · Resend (email)
 
-**Code lives at:** `my-startups/carebot-japan/` (`api/` = FastAPI backend, `web/` = Next.js frontend) — not at the repo root, and not under `apps/`. This repo also contains `apps/startup-robos`, the AI CxO framework that manages CareBot Japan alongside two other businesses (JapanUnlocked, Kanso Templates); see `apps/startup-robos/CLAUDE.md` for how that's wired.
+**Code lives at:** `my-startups/carebot-japan/` (`api/` = FastAPI backend, `web/` = Next.js frontend) — not at the repo root, and not under `apps/`. This repo also contains `apps/startup-robos`, the AI CxO framework that originally managed CareBot Japan alongside JapanUnlocked and Kanso Templates; those two were shut down (not a good niche fit) and the framework now focuses on CareBot Japan; see `apps/startup-robos/CLAUDE.md` for how that's wired.
 
 **Deployed at:**
 - Frontend (Vercel): https://carebot-japan-web.vercel.app
