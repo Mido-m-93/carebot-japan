@@ -251,7 +251,7 @@ export default function LandingPage() {
           <span className="inline-block text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full mb-6 shadow-sm">
             {c.hero_tag}
           </span>
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6 whitespace-pre-line">
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-gray-900 leading-[1.1] mb-6 whitespace-pre-line">
             {c.hero_title.split("\n").map((line, i) => (
               <span key={i} className={i === 1 ? "bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent" : undefined}>
                 {line}
@@ -328,7 +328,7 @@ export default function LandingPage() {
       {/* How it works */}
       <section className="bg-gray-50 border-y border-gray-100 py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-12">{c.how_title}</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 text-center mb-12">{c.how_title}</h2>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3 relative">
             {/* Connecting line behind the steps, desktop only */}
             <div className="hidden md:block absolute top-[18px] left-[8%] right-[8%] h-px bg-gradient-to-r from-teal-200 via-teal-300 to-teal-200" />
@@ -348,7 +348,7 @@ export default function LandingPage() {
       {/* Features */}
       <section className="py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-12">{c.features_title}</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 text-center mb-12">{c.features_title}</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {c.features.map((f) => (
               <div
@@ -370,7 +370,7 @@ export default function LandingPage() {
       <section className="bg-gray-50 border-y border-gray-100 py-20">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{c.pricing_title}</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2">{c.pricing_title}</h2>
             <p className="text-gray-500 text-sm">{c.pricing_sub}</p>
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 max-w-4xl mx-auto">
@@ -454,7 +454,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-teal-700 to-teal-900" />
         <div className="absolute -bottom-32 -right-16 -z-10 w-96 h-96 rounded-full bg-teal-500/20 blur-3xl" />
         <div className="max-w-xl mx-auto px-6 text-center">
-          <h2 className="text-2xl font-bold text-white mb-3">{c.bottom_title}</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-3">{c.bottom_title}</h2>
           <p className="text-sm text-teal-200 mb-8">{c.bottom_sub}</p>
           <Link
             href="/signup"
