@@ -781,9 +781,15 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
 
     if kind == "alternative_time":
         _mark_clarification_resolved(db, pending["id"], choice_idx)
+        extraction = {**context.get("extraction", {}), "preferred_time": chosen["time"]}
+        # The alternatives were computed when the clarification was first
+        # created -- by the time the patient replies, that date may no longer
+        # be today (or the offered time may have since passed). Re-validate
+        # rather than trusting stale options, same as _book_appointment_flow.
+        if is_past_datetime(extraction.get("preferred_date"), chosen["time"], now_jst):
+            return {"status": "date_in_the_past", "date": extraction.get("preferred_date"), "lang": lang}
         clinic = _get_clinic(db, clinic_id)
         clinic_name = _resolve_clinic_name(clinic, lang)
-        extraction = {**context.get("extraction", {}), "preferred_time": chosen["time"]}
         original_raw_message = context.get("original_raw_message", raw_message)
         return _create_appointment(
             db, clinic_id, source=source, extraction=extraction, raw_message=original_raw_message,

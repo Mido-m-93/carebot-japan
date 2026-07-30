@@ -207,6 +207,48 @@ class TestAvailabilityCheck:
         assert result["status"] == "confirmed"
         assert result["scheduled_at"] == f"2099-01-01T{offered['alternatives'][0]}:00+09:00"
 
+    def test_choosing_an_alternative_that_has_since_passed_is_rejected(self, clinic, monkeypatch):
+        # Regression test: the alternatives are computed once, when the
+        # clarification is first created. If the patient takes long enough to
+        # reply that the offered time itself has now passed, picking it must
+        # NOT silently book a past appointment.
+        #
+        # get_available_slots (which computes the alternatives) lives in
+        # routers.appointments, a separate module with its own `datetime`
+        # import -- it must be frozen too, not just services.scheduling's,
+        # or the offered alternatives are computed against the real
+        # wall-clock instead of the fixed "now" this test assumes.
+        import routers.appointments as appointments_module
+
+        clinic.rows["appointments"] = [
+            {"id": "existing", "clinic_id": CLINIC_ID, "line_user_id": "U999",
+             "status": "confirmed", "scheduled_at": "2026-07-30T09:00:00+09:00", "patient_name": "Someone Else"},
+        ]
+        monkeypatch.setattr(scheduling, "datetime", _frozen_now(datetime(2026, 7, 30, 8, 50, tzinfo=JST)))
+        monkeypatch.setattr(appointments_module, "datetime", _frozen_now(datetime(2026, 7, 30, 8, 50, tzinfo=JST)))
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2026-07-30", "preferred_time": "09:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            offered = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for today at 9am",
+                source="line", line_user_id="U123",
+            )
+        assert offered["status"] == "awaiting_alternative_time"
+        first_alternative = offered["alternatives"][0]
+        assert first_alternative == "09:15"  # sanity check the fixture math, not just the assertion below
+
+        # Time has now moved past the offered alternative before the patient replies.
+        monkeypatch.setattr(scheduling, "datetime", _frozen_now(datetime(2026, 7, 30, 9, 20, tzinfo=JST)))
+        result = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="1", source="line", line_user_id="U123",
+        )
+
+        assert result["status"] == "date_in_the_past"
+        scheduled_times = [a["scheduled_at"] for a in clinic.rows["appointments"]]
+        assert f"2026-07-30T{first_alternative}:00+09:00" not in scheduled_times
+
 
 class TestBookingDetails:
     def test_vague_request_asks_for_missing_details_instead_of_booking_blank(self, clinic):
