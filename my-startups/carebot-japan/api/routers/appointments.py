@@ -8,6 +8,7 @@ from services.calendar import push_appointment_to_calendar
 from services.auth import resolve_clinic, require_own_clinic
 from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
 from services.limiter import limiter
+from services.booking_time import is_past_datetime
 from datetime import datetime, date, time, timedelta, timezone
 
 router = APIRouter()
@@ -48,6 +49,16 @@ def book_appointment(request: Request, body: BookingRequest):
 
     # Check availability before booking
     if body.preferred_date and body.preferred_time:
+        now_jst = datetime.now(tz=timezone(timedelta(hours=9)))
+        if is_past_datetime(body.preferred_date, body.preferred_time, now_jst):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "date_in_the_past",
+                    "message": f"{body.preferred_date} at {body.preferred_time} has already passed. Please choose a future date and time.",
+                },
+            )
+
         availability = get_available_slots(db, body.clinic_id, body.preferred_date)
         if not availability["is_open"]:
             raise HTTPException(

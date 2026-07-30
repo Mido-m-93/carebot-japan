@@ -237,3 +237,28 @@ def billing_app(monkeypatch, fake_db):
 def client(billing_app):
     app, _billing_module = billing_app
     return TestClient(app)
+
+
+@pytest.fixture
+def appointments_app(monkeypatch, fake_db):
+    """Same pattern as billing_app, for routers.appointments."""
+    import services.db as db_module
+    import routers.appointments as appointments_module
+    from services.limiter import limiter
+    from slowapi.errors import RateLimitExceeded
+    from slowapi import _rate_limit_exceeded_handler
+
+    monkeypatch.setattr(db_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(appointments_module, "get_db", lambda: fake_db)
+
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.include_router(appointments_module.router, prefix="/appointments")
+    return app, appointments_module
+
+
+@pytest.fixture
+def appointments_client(appointments_app):
+    app, _appointments_module = appointments_app
+    return TestClient(app)
