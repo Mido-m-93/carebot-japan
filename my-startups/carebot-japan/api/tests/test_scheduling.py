@@ -6,11 +6,24 @@ a slot conflict resolve without a human, by correlating against their LINE
 user ID and asking a clarifying question (reply with a number) when genuinely
 ambiguous, instead of guessing or always falling back to a human.
 """
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
 import pytest
 
 import services.scheduling as scheduling
+
+
+JST = timezone(timedelta(hours=9))
+
+
+def _frozen_now(fixed):
+    """A datetime subclass whose .now() always returns `fixed`, everything else (strptime, etc.) unchanged."""
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed.astimezone(tz) if tz else fixed
+    return _Frozen
 
 
 CLINIC_ID = "clinic-1"
@@ -374,6 +387,44 @@ class TestPastDateGuard:
         assert result["status"] == "date_in_the_past"
         assert result["date"] == "2020-01-05"
         assert clinic.rows["appointments"][0]["scheduled_at"] == "2099-01-01T14:00:00+09:00"  # untouched
+
+    def test_booking_todays_date_at_an_already_passed_time_is_rejected(self, clinic, monkeypatch):
+        # Regression test: it's 16:00 JST today, patient asks for 10:00 today.
+        # The date itself isn't "in the past" (it's today), but the time is.
+        fixed_now = datetime(2026, 7, 30, 16, 0, tzinfo=JST)
+        monkeypatch.setattr(scheduling, "datetime", _frozen_now(fixed_now))
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2026-07-30", "preferred_time": "10:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for today at 10am",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "date_in_the_past"
+        assert result["date"] == "2026-07-30"
+        assert clinic.rows.get("appointments", []) == []
+
+    def test_booking_todays_date_at_a_still_upcoming_time_is_not_rejected(self, clinic, monkeypatch):
+        # Same day as above, but the requested time (17:00) hasn't happened yet
+        # relative to the fixed "now" of 16:00 -- must NOT be treated as past.
+        fixed_now = datetime(2026, 7, 30, 16, 0, tzinfo=JST)
+        monkeypatch.setattr(scheduling, "datetime", _frozen_now(fixed_now))
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2026-07-30", "preferred_time": "17:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for today at 5pm",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] != "date_in_the_past"
 
 
 class TestSmallTalk:

@@ -113,7 +113,7 @@ def process_message(
     if line_user_id:
         pending = _get_pending_clarification(db, clinic_id, line_user_id)
         if pending:
-            return _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str)
+            return _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str, now_jst)
 
     lang = _detect_lang(raw_message)
 
@@ -141,7 +141,7 @@ def process_message(
     if intent == "reschedule":
         return _handle_reschedule(
             db, clinic_id, source, line_user_id, raw_message,
-            intent_confidence, today_str, lang,
+            intent_confidence, today_str, now_jst, lang,
         )
 
     # ── Small talk / out-of-scope: reply directly, no review queue needed ──
@@ -208,7 +208,7 @@ def process_message(
 
     return _book_appointment_flow(
         db, clinic_id, source, patient_phone, line_user_id,
-        intent, intent_confidence, extraction, raw_message, clinic, today_str, lang,
+        intent, intent_confidence, extraction, raw_message, clinic, today_str, now_jst, lang,
     )
 
 
@@ -306,14 +306,30 @@ def _get_clinic(db, clinic_id) -> dict:
     return rows.data[0] if rows.data else {"id": clinic_id}
 
 
-def _is_past_date(date_str: str, today_str: str) -> bool:
-    # YYYY-MM-DD strings sort lexicographically, so a plain string compare works.
-    return date_str < today_str
+def _is_past_datetime(date_str: str, time_str: str | None, now_jst: datetime) -> bool:
+    """
+    True if the requested date+time has already passed in JST. A date-only
+    comparison isn't enough -- "today" stops being bookable the moment the
+    requested time itself passes, e.g. requesting today at 09:00 when it's
+    currently 16:00 is exactly as much in the past as requesting yesterday.
+    """
+    today_str = now_jst.strftime("%Y-%m-%d")
+    if date_str < today_str:
+        return True
+    if date_str > today_str or not time_str:
+        return False
+    try:
+        requested = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M").replace(
+            tzinfo=timezone(timedelta(hours=9))
+        )
+    except ValueError:
+        return False
+    return requested < now_jst
 
 
 def _book_appointment_flow(
     db, clinic_id, source, patient_phone, line_user_id,
-    intent, intent_confidence, extraction, raw_message, clinic, today_str, lang,
+    intent, intent_confidence, extraction, raw_message, clinic, today_str, now_jst, lang,
 ) -> dict:
     """
     Shared "we now have date + time + visit reason, actually book it" logic:
@@ -323,7 +339,7 @@ def _book_appointment_flow(
     the booking-details clarification once the patient has filled in what
     was missing.
     """
-    if _is_past_date(extraction["preferred_date"], today_str):
+    if _is_past_datetime(extraction["preferred_date"], extraction.get("preferred_time"), now_jst):
         # A date that's already gone isn't "fully booked" -- say so plainly
         # instead of running the normal availability check against it.
         return {"status": "date_in_the_past", "date": extraction["preferred_date"], "lang": lang}
@@ -485,7 +501,7 @@ def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, inten
 
 def _handle_reschedule(
     db, clinic_id, source, line_user_id, raw_message,
-    intent_confidence, today_str, lang,
+    intent_confidence, today_str, now_jst, lang,
 ):
     if not line_user_id:
         # No channel to identify the patient (web/email reschedule with no
@@ -516,7 +532,7 @@ def _handle_reschedule(
         if new_date and new_time:
             return _apply_reschedule(
                 db, clinic_id, source, line_user_id, appt, new_date, new_time,
-                raw_message, today_str, lang,
+                raw_message, today_str, now_jst, lang,
             )
 
         # They said "reschedule" but didn't say to when in the same message --
@@ -544,8 +560,8 @@ def _handle_reschedule(
     return {"status": "awaiting_reschedule_choice", "options": options, "lang": lang}
 
 
-def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_time, raw_message, today_str, lang):
-    if _is_past_date(new_date, today_str):
+def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_time, raw_message, today_str, now_jst, lang):
+    if _is_past_datetime(new_date, new_time, now_jst):
         # A date that's already gone isn't "fully booked" -- say so plainly
         # instead of running the normal availability check against it.
         return {"status": "date_in_the_past", "date": new_date, "lang": lang}
@@ -683,7 +699,7 @@ def _mark_clarification_resolved(db, pending_id, choice_idx=None):
     }).eq("id", pending_id).execute()
 
 
-def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str):
+def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pending, today_str, now_jst):
     """
     The patient's reply to a clarifying question. Most kinds expect a plain
     number ("1", "2", ...) picking one of the options they were offered --
@@ -738,7 +754,7 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         clinic = _get_clinic(db, clinic_id)
         return _book_appointment_flow(
             db, clinic_id, source, None, line_user_id,
-            "appointment_request", 1.0, merged, raw_message, clinic, today_str, lang,
+            "appointment_request", 1.0, merged, raw_message, clinic, today_str, now_jst, lang,
         )
 
     if kind == "reschedule_new_time":
@@ -756,7 +772,7 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         appt = {"id": context["appointment_id"], "scheduled_at": context["old_scheduled_at"]}
         return _apply_reschedule(
             db, clinic_id, source, line_user_id, appt, new_date, new_time,
-            raw_message, today_str, lang,
+            raw_message, today_str, now_jst, lang,
         )
 
     match = re.search(r"\d+", raw_message)
@@ -803,7 +819,7 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         if new_date and new_time:
             return _apply_reschedule(
                 db, clinic_id, source, line_user_id, appt, new_date, new_time,
-                raw_message, today_str, lang,
+                raw_message, today_str, now_jst, lang,
             )
 
         _create_pending_clarification(
@@ -821,7 +837,7 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         new_time = chosen["time"]
         return _apply_reschedule(
             db, clinic_id, source, line_user_id, appt, new_date, new_time,
-            raw_message, today_str, lang,
+            raw_message, today_str, now_jst, lang,
         )
 
     return {"status": "clarification_unclear", "kind": kind, "options": options, "lang": lang}
