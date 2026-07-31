@@ -327,6 +327,18 @@ class TestAvailabilityCheck:
         assert pending == []
         assert clinic.rows["appointments"][0]["status"] == "confirmed"  # untouched
 
+        # Regression test: the escalated review_queue row must carry the
+        # already-known patient/date/time -- not the raw clarification
+        # context (kind/options/nested extraction), which the dashboard
+        # can't render and would show as "Not extracted" for every field.
+        escalated = [r for r in clinic.rows["review_queue"] if r["status"] == "pending"]
+        assert len(escalated) == 1
+        assert escalated[0]["extracted_data"]["patient_name"] == "Test Patient"
+        assert escalated[0]["extracted_data"]["preferred_date"] == "2099-01-01"
+        # The last patient reply is preserved, with context on why it's queued.
+        assert "seriously, none of them" in escalated[0]["raw_input"]
+        assert "alternative_time" in escalated[0]["raw_input"]
+
 
 class TestParseChoiceIndex:
     """
@@ -734,6 +746,52 @@ class TestReschedule:
         assert result["status"] == "clarification_unclear"
         assert result["kind"] == "reschedule_new_time"
         assert clinic.rows["appointments"][0]["scheduled_at"] == "2099-01-01T14:00:00+09:00"  # untouched
+
+    def test_unparseable_free_text_escalates_after_retry_cap(self, clinic):
+        # Regression test: same "don't loop forever" gap as the numbered-
+        # choice clarifications -- a patient whose new-time reply never
+        # parses must eventually reach a human, not loop indefinitely.
+        clinic.rows["appointments"] = [
+            {"id": "appt-1", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-01T14:00:00+09:00", "patient_name": "Test Patient"},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "reschedule", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "preferred_date": None, "preferred_time": None, "confidence": 0.5, "field_confidences": {},
+             }):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I need to reschedule",
+                source="line", line_user_id="U123",
+            )
+
+        with patch.object(scheduling, "extract_appointment", return_value={
+            "preferred_date": None, "preferred_time": None, "confidence": 0.3, "field_confidences": {},
+        }):
+            first = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="whenever works", source="line", line_user_id="U123",
+            )
+            assert first["status"] == "clarification_unclear"
+
+            second = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="still whenever works", source="line", line_user_id="U123",
+            )
+            assert second["status"] == "clarification_unclear"
+
+            third = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="seriously, whenever works", source="line", line_user_id="U123",
+            )
+
+        assert third["status"] == "queued_for_review"
+        pending = [r for r in clinic.rows["review_queue"] if r["status"] == "awaiting_reply"]
+        assert pending == []
+        assert clinic.rows["appointments"][0]["scheduled_at"] == "2099-01-01T14:00:00+09:00"  # untouched
+
+        escalated = [r for r in clinic.rows["review_queue"] if r["status"] == "pending"]
+        assert len(escalated) == 1
+        assert escalated[0]["extracted_data"]["patient_name"] == "Test Patient"
+        assert escalated[0]["extracted_data"]["preferred_date"] == "2099-01-01"
+        assert "seriously, whenever works" in escalated[0]["raw_input"]
+        assert "reschedule_new_time" in escalated[0]["raw_input"]
 
     def test_multiple_matches_asks_which_one(self, clinic):
         clinic.rows["appointments"] = [

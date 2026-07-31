@@ -774,7 +774,38 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         new_date = extraction.get("preferred_date")
         new_time = extraction.get("preferred_time")
         if not (new_date and new_time):
-            # Still couldn't understand -- leave the row open and re-ask.
+            # Still couldn't understand. Re-ask up to a retry cap, then hand
+            # off to a human -- same "don't loop the same question forever"
+            # gap as the numbered-choice clarifications above.
+            retry_count = context.get("retry_count", 0) + 1
+            if retry_count > MAX_CLARIFICATION_RETRIES:
+                _mark_clarification_resolved(db, pending["id"])
+                appt_rows = (
+                    db.table("appointments")
+                    .select("patient_name, scheduled_at")
+                    .eq("id", context["appointment_id"])
+                    .limit(1)
+                    .execute()
+                )
+                appt_row = appt_rows.data[0] if appt_rows.data else {}
+                old_scheduled_at = appt_row.get("scheduled_at") or ""
+                _push_review_queue(
+                    db, clinic_id, source,
+                    f"[Escalated after {retry_count} unclear replies to a 'reschedule_new_time' clarification] {raw_message}",
+                    pending.get("intent") or "reschedule",
+                    pending.get("intent_confidence") or 0.0,
+                    extracted_data={
+                        "patient_name": appt_row.get("patient_name"),
+                        "preferred_date": old_scheduled_at[:10] or None,
+                        "preferred_time": old_scheduled_at[11:16] or None,
+                    },
+                    field_confidences=None,
+                )
+                return {"status": "queued_for_review", "kind": kind, "lang": lang}
+
+            db.table("review_queue").update(
+                {"extracted_data": {**context, "retry_count": retry_count}}
+            ).eq("id", pending["id"]).execute()
             return {"status": "clarification_unclear", "kind": kind, "options": [], "lang": lang}
 
         _mark_clarification_resolved(db, pending["id"])
@@ -823,11 +854,20 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
         retry_count = context.get("retry_count", 0) + 1
         if retry_count > MAX_CLARIFICATION_RETRIES:
             _mark_clarification_resolved(db, pending["id"])
+            # extracted_data must be the flat {patient_name, preferred_date, ...}
+            # shape the review queue dashboard renders -- the raw clarification
+            # context (kind/options/nested extraction) would show as "Not
+            # extracted" for every field even though we already know most of
+            # them. raw_input also gets a short note on why this landed here,
+            # since by itself the last unclear reply ("hey") tells staff nothing.
+            escalation_data = dict(context.get("extraction") or {})
             _push_review_queue(
-                db, clinic_id, source, raw_message,
+                db, clinic_id, source,
+                f"[Escalated after {retry_count} unclear replies to a '{kind}' clarification] {raw_message}",
                 pending.get("intent") or "appointment_request",
                 pending.get("intent_confidence") or 0.0,
-                extracted_data=context, field_confidences=None,
+                extracted_data=escalation_data,
+                field_confidences=escalation_data.get("field_confidences"),
             )
             return {"status": "queued_for_review", "kind": kind, "lang": lang}
 
