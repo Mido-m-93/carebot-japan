@@ -240,6 +240,28 @@ def client(billing_app):
 
 
 @pytest.fixture
+def clinics_app(monkeypatch, fake_db):
+    """Same pattern as billing_app, for routers.clinics."""
+    import services.db as db_module
+    import services.auth as auth_module
+    import routers.clinics as clinics_module
+
+    monkeypatch.setattr(db_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(auth_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(clinics_module, "get_db", lambda: fake_db)
+
+    app = FastAPI()
+    app.include_router(clinics_module.router, prefix="/clinics")
+    return app, clinics_module
+
+
+@pytest.fixture
+def clinics_client(clinics_app):
+    app, _clinics_module = clinics_app
+    return TestClient(app)
+
+
+@pytest.fixture
 def appointments_app(monkeypatch, fake_db):
     """Same pattern as billing_app, for routers.appointments."""
     import services.db as db_module

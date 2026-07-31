@@ -45,6 +45,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
     { href: "/dashboard/locations", label: t.nav_locations },
     { href: "/dashboard/test", label: t.nav_test },
     { href: "/dashboard/billing", label: t.nav_billing },
+    { href: "/dashboard/settings", label: t.nav_settings },
   ];
 
   async function handleLogout() {
