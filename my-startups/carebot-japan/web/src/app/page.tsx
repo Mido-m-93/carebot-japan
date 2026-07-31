@@ -252,7 +252,7 @@ export default function LandingPage() {
           <span className="inline-block text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full mb-6 shadow-sm animate-fade-in-up [animation-delay:0ms]">
             {c.hero_tag}
           </span>
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-gray-900 leading-[0.95] mb-6 whitespace-pre-line animate-fade-in-up [animation-delay:100ms]">
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-gray-900 leading-[1.05] mb-6 whitespace-pre-line animate-fade-in-up [animation-delay:100ms]">
             {c.hero_title.split("\n").map((line, i) => (
               <span key={i} className={i === 1 ? "bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent" : undefined}>
                 {line}
