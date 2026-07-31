@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Reveal } from "@/components/Reveal";
 
 const copy = {
   en: {
@@ -244,14 +245,14 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         {/* Decorative gradient backdrop */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-teal-50 via-white to-white" />
-        <div className="absolute -top-24 -left-24 -z-10 w-96 h-96 rounded-full bg-teal-200/40 blur-3xl" />
-        <div className="absolute -top-10 right-0 -z-10 w-80 h-80 rounded-full bg-teal-100/50 blur-3xl" />
+        <div className="absolute -top-24 -left-24 -z-10 w-96 h-96 rounded-full bg-teal-200/40 blur-3xl animate-float-slow" />
+        <div className="absolute -top-10 right-0 -z-10 w-80 h-80 rounded-full bg-teal-100/50 blur-3xl animate-float" />
 
         <div className="max-w-5xl mx-auto px-6 pt-20 pb-24 text-center">
-          <span className="inline-block text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full mb-6 shadow-sm">
+          <span className="inline-block text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full mb-6 shadow-sm animate-fade-in-up [animation-delay:0ms]">
             {c.hero_tag}
           </span>
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-gray-900 leading-[0.95] mb-6 whitespace-pre-line">
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-gray-900 leading-[0.95] mb-6 whitespace-pre-line animate-fade-in-up [animation-delay:100ms]">
             {c.hero_title.split("\n").map((line, i) => (
               <span key={i} className={i === 1 ? "bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent" : undefined}>
                 {line}
@@ -259,10 +260,10 @@ export default function LandingPage() {
               </span>
             ))}
           </h1>
-          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8 leading-relaxed">
+          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8 leading-relaxed animate-fade-in-up [animation-delay:200ms]">
             {c.hero_sub}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up [animation-delay:300ms]">
             <Link
               href="/signup"
               className="px-7 py-3 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-800 transition-all hover:shadow-lg hover:shadow-teal-800/20 hover:-translate-y-0.5 shadow-sm"
@@ -276,14 +277,14 @@ export default function LandingPage() {
               {c.nav_signin}
             </Link>
           </div>
-          <p className="mt-3 text-xs text-gray-400">{c.hero_sub_cta}</p>
+          <p className="mt-3 text-xs text-gray-400 animate-fade-in-up [animation-delay:350ms]">{c.hero_sub_cta}</p>
 
           {/* Mock dashboard preview */}
-          <div className="mt-14 bg-gray-50 border border-gray-200 rounded-2xl p-6 text-left shadow-xl shadow-teal-900/5 ring-1 ring-black/5">
+          <div className="mt-14 bg-gray-50 border border-gray-200 rounded-2xl p-6 text-left shadow-xl shadow-teal-900/5 ring-1 ring-black/5 animate-fade-in-up [animation-delay:450ms] transition-shadow hover:shadow-2xl hover:shadow-teal-900/10">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-            <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse-soft" />
             <span className="ml-2 text-xs text-gray-400">CareBot Japan Dashboard</span>
           </div>
           <div className="grid grid-cols-4 gap-3 mb-4">
@@ -292,8 +293,12 @@ export default function LandingPage() {
               { label: lang === "ja" ? "今週" : "This week", value: "34" },
               { label: lang === "ja" ? "要確認" : "Pending", value: "2" },
               { label: lang === "ja" ? "確定済み" : "Confirmed", value: "127" },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-white rounded-xl border border-gray-100 p-3">
+            ].map(({ label, value }, i) => (
+              <div
+                key={label}
+                className="bg-white rounded-xl border border-gray-100 p-3 transition-transform hover:-translate-y-0.5 hover:shadow-sm animate-fade-in-up"
+                style={{ animationDelay: `${550 + i * 80}ms` }}
+              >
                 <p className="text-xs text-gray-400 mb-1">{label}</p>
                 <p className="text-xl font-semibold text-gray-900">{value}</p>
               </div>
@@ -305,7 +310,11 @@ export default function LandingPage() {
               { name: lang === "ja" ? "山田 太郎" : "Taro Yamada", time: "11:00", reason: lang === "ja" ? "腰痛" : "Back pain", status: "confirmed" },
               { name: lang === "ja" ? "鈴木 美咲" : "Misaki Suzuki", time: "14:30", reason: lang === "ja" ? "風邪" : "Cold", status: "pending" },
             ].map((row, i) => (
-              <div key={i} className={`flex items-center justify-between px-4 py-2.5 text-xs ${i < 2 ? "border-b border-gray-50" : ""}`}>
+              <div
+                key={i}
+                className={`flex items-center justify-between px-4 py-2.5 text-xs transition-colors hover:bg-gray-50 animate-fade-in-up ${i < 2 ? "border-b border-gray-50" : ""}`}
+                style={{ animationDelay: `${900 + i * 80}ms` }}
+              >
                 <span className="font-medium text-gray-800 w-28">{row.name}</span>
                 <span className="text-gray-400">{row.time}</span>
                 <span className="text-gray-500 flex-1 px-4">{row.reason}</span>
@@ -328,18 +337,20 @@ export default function LandingPage() {
       {/* How it works */}
       <section className="bg-gray-50 border-y border-gray-100 py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 text-center mb-12">{c.how_title}</h2>
+          <Reveal>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 text-center mb-12">{c.how_title}</h2>
+          </Reveal>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3 relative">
             {/* Connecting line behind the steps, desktop only */}
             <div className="hidden md:block absolute top-[18px] left-[8%] right-[8%] h-px bg-gradient-to-r from-teal-200 via-teal-300 to-teal-200" />
-            {c.how_steps.map((step) => (
-              <div key={step.n} className="flex flex-col relative">
+            {c.how_steps.map((step, i) => (
+              <Reveal key={step.n} delay={i * 120} className="flex flex-col relative">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-600 to-teal-800 text-white text-sm font-bold flex items-center justify-center mb-4 shadow-md shadow-teal-800/20 ring-4 ring-gray-50">
                   {step.n}
                 </div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2">{step.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{step.sub}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -348,11 +359,14 @@ export default function LandingPage() {
       {/* Features */}
       <section className="py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 text-center mb-12">{c.features_title}</h2>
+          <Reveal>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 text-center mb-12">{c.features_title}</h2>
+          </Reveal>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {c.features.map((f) => (
-              <div
+            {c.features.map((f, i) => (
+              <Reveal
                 key={f.title}
+                delay={i * 100}
                 className="bg-gray-50 rounded-2xl border border-gray-100 p-6 transition-all hover:border-teal-200 hover:shadow-md hover:shadow-teal-900/5 hover:-translate-y-0.5"
               >
                 <span className="w-11 h-11 rounded-xl bg-white border border-gray-100 shadow-sm text-xl mb-4 flex items-center justify-center">
@@ -360,7 +374,7 @@ export default function LandingPage() {
                 </span>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1.5">{f.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{f.sub}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -369,13 +383,15 @@ export default function LandingPage() {
       {/* Pricing */}
       <section className="bg-gray-50 border-y border-gray-100 py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2">{c.pricing_title}</h2>
-            <p className="text-gray-500 text-sm">{c.pricing_sub}</p>
-          </div>
+          <Reveal>
+            <div className="text-center mb-12">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2">{c.pricing_title}</h2>
+              <p className="text-gray-500 text-sm">{c.pricing_sub}</p>
+            </div>
+          </Reveal>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 max-w-4xl mx-auto">
             {/* Starter */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col transition-shadow hover:shadow-md hover:shadow-gray-900/5">
+            <Reveal delay={0} className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col transition-shadow hover:shadow-md hover:shadow-gray-900/5">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
                 {c.plan_starter}
               </p>
@@ -393,10 +409,10 @@ export default function LandingPage() {
               >
                 {c.cta_starter}
               </Link>
-            </div>
+            </Reveal>
 
             {/* Pro */}
-            <div className="bg-gradient-to-br from-teal-700 to-teal-900 rounded-2xl p-7 flex flex-col relative shadow-xl shadow-teal-900/20 ring-1 ring-teal-900/10">
+            <Reveal delay={120} className="bg-gradient-to-br from-teal-700 to-teal-900 rounded-2xl p-7 flex flex-col relative shadow-xl shadow-teal-900/20 ring-1 ring-teal-900/10 transition-transform hover:-translate-y-1">
               <span className="absolute top-5 right-5 text-xs bg-white text-teal-800 font-semibold px-2.5 py-1 rounded-full shadow-sm">
                 {c.popular}
               </span>
@@ -420,10 +436,10 @@ export default function LandingPage() {
               >
                 {c.cta_pro}
               </Link>
-            </div>
+            </Reveal>
 
             {/* Enterprise */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col transition-shadow hover:shadow-md hover:shadow-gray-900/5">
+            <Reveal delay={240} className="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col transition-shadow hover:shadow-md hover:shadow-gray-900/5">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
                 {c.plan_enterprise}
               </p>
@@ -444,7 +460,7 @@ export default function LandingPage() {
               >
                 {c.cta_enterprise}
               </Link>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -452,8 +468,8 @@ export default function LandingPage() {
       {/* Bottom CTA */}
       <section className="relative overflow-hidden py-20">
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-teal-700 to-teal-900" />
-        <div className="absolute -bottom-32 -right-16 -z-10 w-96 h-96 rounded-full bg-teal-500/20 blur-3xl" />
-        <div className="max-w-xl mx-auto px-6 text-center">
+        <div className="absolute -bottom-32 -right-16 -z-10 w-96 h-96 rounded-full bg-teal-500/20 blur-3xl animate-float-slow" />
+        <Reveal className="max-w-xl mx-auto px-6 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-3">{c.bottom_title}</h2>
           <p className="text-sm text-teal-200 mb-8">{c.bottom_sub}</p>
           <Link
@@ -462,7 +478,7 @@ export default function LandingPage() {
           >
             {c.bottom_cta}
           </Link>
-        </div>
+        </Reveal>
       </section>
 
       {/* Footer */}

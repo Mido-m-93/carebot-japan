@@ -62,7 +62,36 @@ EXTRACTION_CONFIDENCE_THRESHOLD = 0.80
 # "reply with a number" scheme unambiguous.
 MAX_CLARIFICATION_OPTIONS = 5
 
+# How many times in a row we'll re-ask the same numbered-choice question
+# before giving up and handing off to a human, so a patient who genuinely
+# can't answer it (e.g. none of the offered times work) isn't stuck in an
+# infinite "please reply with a number" loop.
+MAX_CLARIFICATION_RETRIES = 2
+
 _JP_DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"]
+
+# Digits that are part of an ordinal, a time-of-day, or a date -- "2nd",
+# "11am", "15:00", "3時" -- rather than the patient picking option N from a
+# numbered menu. Stripped out before we look for a menu-selection digit, so
+# a reply like "none of them, how about the 2nd at 11am?" isn't misread as
+# "pick option 2" just because it happens to contain a digit.
+_ORDINAL_OR_TIME_NOISE_RE = re.compile(
+    r"\d+\s*(?:st|nd|rd|th|am|pm)\b"  # ordinals/am-pm: "2nd", "11am", "3PM"
+    r"|\d+\s*(?:時|月|日)"  # Japanese hour/month/day markers: "15時", "1月", "2日"
+    r"|\d{1,2}\s*[:：]\s*\d{2}",  # times: "15:00", "3：30"
+    re.IGNORECASE,
+)
+
+
+def _parse_choice_index(raw_message: str) -> int:
+    """
+    Which numbered option (if any) the patient is picking from a menu, as a
+    0-based index -- "2" -> 1. Returns -1 if no menu-selection digit is
+    present once ordinal/time/date noise has been stripped out.
+    """
+    stripped = _ORDINAL_OR_TIME_NOISE_RE.sub(" ", raw_message)
+    match = re.search(r"\d+", stripped)
+    return int(match.group()) - 1 if match else -1
 
 _JAPANESE_SCRIPT_RE = re.compile("[぀-ヿ一-鿿]")
 _LANGUAGE_SIGNAL_RE = re.compile("[A-Za-z぀-ヿ一-鿿]")
@@ -659,7 +688,7 @@ def _create_pending_clarification(
 def _get_pending_clarification(db, clinic_id, line_user_id):
     rows = (
         db.table("review_queue")
-        .select("id, extracted_data")
+        .select("id, extracted_data, intent, intent_confidence")
         .eq("clinic_id", clinic_id)
         .eq("line_user_id", line_user_id)
         .eq("status", "awaiting_reply")
@@ -755,12 +784,56 @@ def _resolve_clarification(db, clinic_id, source, line_user_id, raw_message, pen
             raw_message, today_str, now_jst, lang,
         )
 
-    match = re.search(r"\d+", raw_message)
-    choice_idx = int(match.group()) - 1 if match else -1
+    choice_idx = _parse_choice_index(raw_message)
 
     if choice_idx < 0 or choice_idx >= len(options):
-        # Didn't understand the reply -- re-ask the same question rather
-        # than silently dropping it or guessing.
+        # No valid numbered choice. For time-slot clarifications, the reply
+        # might be a fresh date/time rather than a rejection of what was
+        # offered ("none of them, how about Tuesday?") -- try treating it as
+        # a new appointment request before giving up.
+        if kind in ("alternative_time", "reschedule_alternative_time"):
+            try:
+                new_extraction = extract_appointment(raw_message, today_str)
+            except Exception:
+                new_extraction = {}
+            if new_extraction.get("preferred_date") and new_extraction.get("preferred_time"):
+                _mark_clarification_resolved(db, pending["id"])
+                if kind == "alternative_time":
+                    extraction = {
+                        **context.get("extraction", {}),
+                        "preferred_date": new_extraction["preferred_date"],
+                        "preferred_time": new_extraction["preferred_time"],
+                    }
+                    clinic = _get_clinic(db, clinic_id)
+                    return _book_appointment_flow(
+                        db, clinic_id, source, None, line_user_id,
+                        "appointment_request", 1.0, extraction, raw_message, clinic,
+                        today_str, now_jst, lang,
+                    )
+                appt = {"id": context["appointment_id"], "scheduled_at": context.get("old_scheduled_at")}
+                return _apply_reschedule(
+                    db, clinic_id, source, line_user_id, appt,
+                    new_extraction["preferred_date"], new_extraction["preferred_time"],
+                    raw_message, today_str, now_jst, lang,
+                )
+
+        # Still unclear -- re-ask, but only up to a retry cap. Past that,
+        # hand off to a human instead of looping the same question forever
+        # (e.g. a patient who genuinely can't take any offered time).
+        retry_count = context.get("retry_count", 0) + 1
+        if retry_count > MAX_CLARIFICATION_RETRIES:
+            _mark_clarification_resolved(db, pending["id"])
+            _push_review_queue(
+                db, clinic_id, source, raw_message,
+                pending.get("intent") or "appointment_request",
+                pending.get("intent_confidence") or 0.0,
+                extracted_data=context, field_confidences=None,
+            )
+            return {"status": "queued_for_review", "kind": kind, "lang": lang}
+
+        db.table("review_queue").update(
+            {"extracted_data": {**context, "retry_count": retry_count}}
+        ).eq("id", pending["id"]).execute()
         return {"status": "clarification_unclear", "kind": kind, "options": options, "lang": lang}
 
     chosen = options[choice_idx]
