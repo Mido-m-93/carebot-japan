@@ -1,11 +1,12 @@
 """
 Public and authenticated clinic info endpoints.
 
-GET  /clinics/by-slug/{slug}  — public, returns clinic name + ID for booking form
-POST /clinics/onboard         — authenticated, creates a new clinic + owner membership (one-time)
-GET  /clinics/me              — authenticated, returns current user's clinic + slug
-GET  /clinics/locations       — authenticated, lists every clinic the caller can access
-POST /clinics/locations       — authenticated, Enterprise-only, creates a new location
+GET   /clinics/by-slug/{slug}  — public, returns clinic name + ID for booking form
+POST  /clinics/onboard         — authenticated, creates a new clinic + owner membership (one-time)
+GET   /clinics/me              — authenticated, returns current user's clinic + slug
+PATCH /clinics/me              — authenticated, owner-only, updates name/name_jp/phone
+GET   /clinics/locations       — authenticated, lists every clinic the caller can access
+POST  /clinics/locations       — authenticated, Enterprise-only, creates a new location
 """
 
 import re
@@ -159,15 +160,63 @@ def get_my_clinic(
 ):
     """
     Authenticated endpoint — returns the current user's clinic info
-    including slug (used to build the shareable booking URL).
+    including slug (used to build the shareable booking URL) and the
+    fields the settings page lets an owner edit (name_jp, phone, role).
     """
     clinic_id, clinic = resolve_clinic(authorization, x_clinic_id)
 
     return {
         "clinic_id": clinic_id,
         "name": clinic.get("name"),
+        "name_jp": clinic.get("name_jp"),
+        "phone": clinic.get("phone"),
         "slug": clinic.get("slug"),
+        "role": clinic.get("role"),
     }
+
+
+# ── PATCH /clinics/me ─────────────────────────────────────────────────────────
+
+class UpdateClinicRequest(BaseModel):
+    name: str | None = None
+    name_jp: str | None = None
+    phone: str | None = None
+
+
+@router.patch("/me")
+def update_my_clinic(
+    body: UpdateClinicRequest,
+    authorization: Annotated[str | None, Header()] = None,
+    x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
+):
+    """
+    Update the caller's active clinic's display name / phone. Owner-only --
+    staff shouldn't be able to rename the clinic they work at. Applies to
+    whichever clinic is active (not redirected to a parent like billing),
+    since each location has its own name.
+    """
+    clinic_id, clinic = resolve_clinic(authorization, x_clinic_id)
+    if clinic.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Only the clinic owner can update clinic settings")
+
+    updates: dict = {}
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Clinic name cannot be empty")
+        updates["name"] = name
+    if body.name_jp is not None:
+        updates["name_jp"] = body.name_jp.strip() or None
+    if body.phone is not None:
+        updates["phone"] = body.phone.strip() or None
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    db = get_db()
+    db.table("clinics").update(updates).eq("id", clinic_id).execute()
+
+    return {"clinic_id": clinic_id, **updates}
 
 
 # ── GET /clinics/locations ─────────────────────────────────────────────────────

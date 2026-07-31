@@ -60,6 +60,7 @@ export const translations = {
     nav_locations: "Locations",
     nav_test: "Test Message",
     nav_billing: "Billing",
+    nav_settings: "Settings",
     nav_signout: "Sign out",
 
     // Common
@@ -317,6 +318,7 @@ export const translations = {
     nav_locations: "拠点管理",
     nav_test: "テスト送信",
     nav_billing: "お支払い",
+    nav_settings: "設定",
     nav_signout: "ログアウト",
 
     // Common
