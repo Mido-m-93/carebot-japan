@@ -249,6 +249,113 @@ class TestAvailabilityCheck:
         scheduled_times = [a["scheduled_at"] for a in clinic.rows["appointments"]]
         assert f"2026-07-30T{first_alternative}:00+09:00" not in scheduled_times
 
+    def test_rejecting_all_alternatives_with_a_new_time_rebooks_instead_of_looping(self, clinic):
+        # Regression test: a non-numeric reply to an "alternative_time"
+        # clarification used to always loop the same "reply with a number"
+        # question forever, even when the reply was actually a fresh,
+        # parseable date/time ("none of them, how about the 2nd at 11am?").
+        clinic.rows["appointments"] = [
+            {"id": "existing", "clinic_id": CLINIC_ID, "line_user_id": "U999",
+             "status": "confirmed", "scheduled_at": "2099-01-01T10:00:00+09:00", "patient_name": "Someone Else"},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            offered = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
+                source="line", line_user_id="U123",
+            )
+        assert offered["status"] == "awaiting_alternative_time"
+
+        with patch.object(scheduling, "extract_appointment", return_value={
+            "patient_name": "Test Patient", "preferred_date": "2099-01-02", "preferred_time": "11:00",
+            "visit_reason": "checkup", "confidence": 0.9, "field_confidences": {},
+        }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="none of them, how about the 2nd at 11am?",
+                source="line", line_user_id="U123",
+            )
+
+        assert result["status"] == "confirmed"
+        assert result["scheduled_at"] == "2099-01-02T11:00:00+09:00"
+
+    def test_unparseable_alternative_reply_escalates_after_retry_cap(self, clinic):
+        # Regression test: a patient who truly can't answer ("none of them"
+        # with no re-parseable new time) must not be stuck in an infinite
+        # "please reply with a number" loop -- after a couple of unclear
+        # replies it should hand off to a human instead.
+        clinic.rows["appointments"] = [
+            {"id": "existing", "clinic_id": CLINIC_ID, "line_user_id": "U999",
+             "status": "confirmed", "scheduled_at": "2099-01-01T10:00:00+09:00", "patient_name": "Someone Else"},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            offered = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
+                source="line", line_user_id="U123",
+            )
+        assert offered["status"] == "awaiting_alternative_time"
+
+        with patch.object(scheduling, "extract_appointment", return_value={
+            "patient_name": None, "preferred_date": None, "preferred_time": None,
+            "visit_reason": None, "confidence": 0.0, "field_confidences": {},
+        }):
+            first = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="none of them", source="line", line_user_id="U123",
+            )
+            assert first["status"] == "clarification_unclear"
+
+            second = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="still none of them", source="line", line_user_id="U123",
+            )
+            assert second["status"] == "clarification_unclear"
+
+            third = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="seriously, none of them", source="line", line_user_id="U123",
+            )
+
+        assert third["status"] == "queued_for_review"
+        # The clarification row was resolved (no longer awaiting reply) --
+        # a fourth identical message would start a fresh conversation, not
+        # keep re-asking the same question.
+        pending = [r for r in clinic.rows["review_queue"] if r["status"] == "awaiting_reply"]
+        assert pending == []
+        assert clinic.rows["appointments"][0]["status"] == "confirmed"  # untouched
+
+
+class TestParseChoiceIndex:
+    """
+    Unit tests for the menu-selection digit parser used by clarification
+    resolution. Ordinal ("2nd"), time-of-day ("11am", "15:00", "3時"), and
+    date ("1月2日") mentions must not be mistaken for the patient picking
+    option N from a numbered menu.
+    """
+
+    def test_bare_number_is_a_choice(self):
+        assert scheduling._parse_choice_index("2") == 1
+
+    def test_number_with_minor_decoration_is_a_choice(self):
+        assert scheduling._parse_choice_index("no. 2 please") == 1
+
+    def test_ordinal_date_is_not_a_choice(self):
+        assert scheduling._parse_choice_index("how about the 2nd?") == -1
+
+    def test_time_of_day_is_not_a_choice(self):
+        assert scheduling._parse_choice_index("how about 11am instead") == -1
+        assert scheduling._parse_choice_index("how about 15:00 instead") == -1
+
+    def test_japanese_time_and_date_markers_are_not_a_choice(self):
+        assert scheduling._parse_choice_index("15時からでお願いします") == -1
+        assert scheduling._parse_choice_index("1月2日はどうですか") == -1
+
+    def test_ordinal_and_time_together_falls_back_to_no_choice(self):
+        assert scheduling._parse_choice_index("none of them, how about the 2nd at 11am?") == -1
+
 
 class TestBookingDetails:
     def test_vague_request_asks_for_missing_details_instead_of_booking_blank(self, clinic):
