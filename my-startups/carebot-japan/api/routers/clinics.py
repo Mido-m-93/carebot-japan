@@ -240,6 +240,7 @@ def list_locations(
             "slug": c.get("slug"),
             "is_primary": c["is_primary"],
             "role": c["role"],
+            "active": c.get("active", True),
         }
         for c in clinics
     ]
@@ -295,3 +296,40 @@ def create_location(
         "name": body.name,
         "slug": slug,
     }
+
+
+# ── PATCH /clinics/locations/{location_id} ─────────────────────────────────────
+
+class UpdateLocationStatusRequest(BaseModel):
+    active: bool
+
+
+@router.patch("/locations/{location_id}")
+def update_location_status(
+    location_id: str,
+    body: UpdateLocationStatusRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """
+    Activate/deactivate a location. Owner-only, soft -- flips the same
+    `active` flag services.scheduling already checks before processing a
+    booking, so a deactivated location just stops accepting new
+    appointments. Its row and all appointment history are untouched; this
+    never deletes anything. Can't target the primary clinic itself here --
+    deactivating your account's home clinic is a separate, bigger decision
+    than removing one location.
+    """
+    user_id = _get_authenticated_user_id(authorization)
+    clinics = _get_clinics_for_user(user_id)
+    match = next((c for c in clinics if c["id"] == location_id), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Location not found")
+    if match.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Only the clinic owner can change a location's status")
+    if not match.get("parent_clinic_id"):
+        raise HTTPException(status_code=400, detail="The primary clinic can't be deactivated from here")
+
+    db = get_db()
+    db.table("clinics").update({"active": body.active}).eq("id", location_id).execute()
+
+    return {"clinic_id": location_id, "active": body.active}
