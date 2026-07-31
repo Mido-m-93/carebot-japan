@@ -146,6 +146,47 @@ class TestCancellation:
         assert clinic.rows["appointments"][0]["status"] == "confirmed"
         assert clinic.rows["appointments"][1]["status"] == "confirmed"
 
+    def test_unparseable_reply_escalates_after_retry_cap(self, clinic):
+        # Regression test: same "don't loop forever" gap as the other
+        # numbered-choice clarifications -- a patient who can never answer
+        # "which appointment?" must reach a human, not loop indefinitely.
+        clinic.rows["appointments"] = [
+            {"id": "appt-1", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-01T14:00:00+09:00", "patient_name": "Test Patient"},
+            {"id": "appt-2", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-05T10:00:00+09:00", "patient_name": "Test Patient"},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "cancellation", "confidence": 0.95}):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="cancel", source="line", line_user_id="U123",
+            )
+
+        first = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="neither", source="line", line_user_id="U123",
+        )
+        assert first["status"] == "clarification_unclear"
+
+        second = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="not these", source="line", line_user_id="U123",
+        )
+        assert second["status"] == "clarification_unclear"
+
+        third = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="help", source="line", line_user_id="U123",
+        )
+
+        assert third["status"] == "queued_for_review"
+        pending = [r for r in clinic.rows["review_queue"] if r["status"] == "awaiting_reply"]
+        assert pending == []
+        assert clinic.rows["appointments"][0]["status"] == "confirmed"  # untouched
+        assert clinic.rows["appointments"][1]["status"] == "confirmed"  # untouched
+
+        escalated = [r for r in clinic.rows["review_queue"] if r["status"] == "pending"]
+        assert len(escalated) == 1
+        assert escalated[0]["intent"] == "cancellation"
+        assert "help" in escalated[0]["raw_input"]
+        assert "cancel_choice" in escalated[0]["raw_input"]
+
 
 class TestAvailabilityCheck:
     def test_available_slot_books_normally(self, clinic):
@@ -833,6 +874,50 @@ class TestReschedule:
 
         assert result["status"] == "awaiting_reschedule_time"
         assert result["scheduled_at"] == "2099-01-05T10:00:00+09:00"
+
+    def test_unparseable_choice_escalates_after_retry_cap(self, clinic):
+        # Regression test: same "don't loop forever" gap as the other
+        # numbered-choice clarifications -- a patient who can never answer
+        # "which appointment do you want to reschedule?" must reach a human.
+        clinic.rows["appointments"] = [
+            {"id": "appt-1", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-01T14:00:00+09:00", "patient_name": "Test Patient"},
+            {"id": "appt-2", "clinic_id": CLINIC_ID, "line_user_id": "U123",
+             "status": "confirmed", "scheduled_at": "2099-01-05T10:00:00+09:00", "patient_name": "Test Patient"},
+        ]
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "reschedule", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "preferred_date": None, "preferred_time": None, "confidence": 0.5, "field_confidences": {},
+             }):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I need to reschedule", source="line", line_user_id="U123",
+            )
+
+        first = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="neither", source="line", line_user_id="U123",
+        )
+        assert first["status"] == "clarification_unclear"
+
+        second = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="not these", source="line", line_user_id="U123",
+        )
+        assert second["status"] == "clarification_unclear"
+
+        third = scheduling.process_message(
+            clinic_id=CLINIC_ID, raw_message="help", source="line", line_user_id="U123",
+        )
+
+        assert third["status"] == "queued_for_review"
+        pending = [r for r in clinic.rows["review_queue"] if r["status"] == "awaiting_reply"]
+        assert pending == []
+        assert clinic.rows["appointments"][0]["scheduled_at"] == "2099-01-01T14:00:00+09:00"  # untouched
+        assert clinic.rows["appointments"][1]["scheduled_at"] == "2099-01-05T10:00:00+09:00"  # untouched
+
+        escalated = [r for r in clinic.rows["review_queue"] if r["status"] == "pending"]
+        assert len(escalated) == 1
+        assert escalated[0]["intent"] == "reschedule"
+        assert "help" in escalated[0]["raw_input"]
+        assert "reschedule_choice" in escalated[0]["raw_input"]
 
     def test_choosing_appointment_with_new_time_already_known_reschedules_directly(self, clinic):
         clinic.rows["appointments"] = [
