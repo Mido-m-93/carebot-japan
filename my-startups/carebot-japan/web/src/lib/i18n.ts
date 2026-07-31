@@ -257,6 +257,14 @@ export const translations = {
     locations_col_name: "Name",
     locations_col_slug: "Booking link",
     locations_col_role: "Your role",
+    locations_col_status: "Status",
+    locations_col_actions: "Actions",
+    locations_status_active: "Active",
+    locations_status_inactive: "Inactive",
+    locations_deactivate: "Deactivate",
+    locations_reactivate: "Reactivate",
+    locations_confirm_deactivate: "Deactivate this location? It'll stop accepting new bookings, but nothing is deleted — you can reactivate it anytime.",
+    locations_action_error: "Something went wrong. Please try again.",
   },
 
   ja: {
@@ -515,6 +523,14 @@ export const translations = {
     locations_col_name: "名前",
     locations_col_slug: "予約リンク",
     locations_col_role: "あなたの権限",
+    locations_col_status: "ステータス",
+    locations_col_actions: "操作",
+    locations_status_active: "有効",
+    locations_status_inactive: "無効",
+    locations_deactivate: "無効化",
+    locations_reactivate: "再度有効化",
+    locations_confirm_deactivate: "この拠点を無効化しますか？新規予約の受付は停止されますが、データは削除されません。いつでも再度有効化できます。",
+    locations_action_error: "エラーが発生しました。もう一度お試しください。",
   },
 } as const;
 

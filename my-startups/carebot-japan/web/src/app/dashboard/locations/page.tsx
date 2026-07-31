@@ -15,6 +15,8 @@ export default function LocationsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", name_jp: "", phone: "", line_channel_id: "" });
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   const activeRole = locations.find((l) => l.clinic_id === activeClinicId)?.role;
   const canManage = tier === "enterprise" && activeRole === "owner";
@@ -70,6 +72,32 @@ export default function LocationsPage() {
       setCreateError(err instanceof Error ? err.message : t.locations_error_create);
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function toggleLocationStatus(clinicId: string, nextActive: boolean) {
+    if (!nextActive && !window.confirm(t.locations_confirm_deactivate)) return;
+
+    setStatusUpdating(clinicId);
+    setStatusError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setStatusError(t.locations_action_error); return; }
+
+      const res = await fetch(`${API_URL}/clinics/locations/${clinicId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ active: nextActive }),
+      });
+      if (!res.ok) throw new Error();
+      await refresh();
+    } catch {
+      setStatusError(t.locations_action_error);
+    } finally {
+      setStatusUpdating(null);
     }
   }
 
@@ -163,18 +191,30 @@ export default function LocationsPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-lg">
+          {statusError && (
+            <div className="mb-4 max-w-2xl bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="text-xs text-red-600">{statusError}</p>
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-2xl">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  {[t.locations_col_name, t.locations_col_slug, t.locations_col_role].map((h) => (
+                  {[
+                    t.locations_col_name,
+                    t.locations_col_slug,
+                    t.locations_col_role,
+                    t.locations_col_status,
+                    ...(canManage ? [t.locations_col_actions] : []),
+                  ].map((h) => (
                     <th key={h} className="text-left px-5 py-3 text-xs font-medium text-gray-500">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {locations.map((loc, i) => (
-                  <tr key={loc.clinic_id} className={`border-b border-gray-50 ${i === locations.length - 1 ? "border-0" : ""}`}>
+                  <tr key={loc.clinic_id} className={`border-b border-gray-50 ${i === locations.length - 1 ? "border-0" : ""} ${loc.active ? "" : "opacity-60"}`}>
                     <td className="px-5 py-3 font-medium text-gray-800">
                       {lang === "ja" ? loc.name_jp || loc.name : loc.name}
                       {loc.is_primary && (
@@ -185,6 +225,28 @@ export default function LocationsPage() {
                     </td>
                     <td className="px-5 py-3 text-gray-500 font-mono text-xs">{loc.slug ?? "—"}</td>
                     <td className="px-5 py-3 text-gray-600">{loc.role === "owner" ? t.locations_role_owner : t.locations_role_staff}</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        loc.active ? "bg-teal-50 text-teal-700" : "bg-gray-100 text-gray-500"
+                      }`}>
+                        {loc.active ? t.locations_status_active : t.locations_status_inactive}
+                      </span>
+                    </td>
+                    {canManage && (
+                      <td className="px-5 py-3">
+                        {!loc.is_primary && (
+                          <button
+                            onClick={() => toggleLocationStatus(loc.clinic_id, !loc.active)}
+                            disabled={statusUpdating === loc.clinic_id}
+                            className={`text-xs font-medium disabled:opacity-50 transition-colors ${
+                              loc.active ? "text-red-600 hover:text-red-700" : "text-teal-600 hover:text-teal-700"
+                            }`}
+                          >
+                            {loc.active ? t.locations_deactivate : t.locations_reactivate}
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

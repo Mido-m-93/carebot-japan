@@ -9,6 +9,7 @@ export interface Location {
   slug: string | null;
   is_primary: boolean;
   role: "owner" | "staff";
+  active: boolean;
 }
 
 interface ClinicContextValue {
