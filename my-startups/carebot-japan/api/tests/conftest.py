@@ -265,12 +265,14 @@ def clinics_client(clinics_app):
 def appointments_app(monkeypatch, fake_db):
     """Same pattern as billing_app, for routers.appointments."""
     import services.db as db_module
+    import services.auth as auth_module
     import routers.appointments as appointments_module
     from services.limiter import limiter
     from slowapi.errors import RateLimitExceeded
     from slowapi import _rate_limit_exceeded_handler
 
     monkeypatch.setattr(db_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(auth_module, "get_db", lambda: fake_db)
     monkeypatch.setattr(appointments_module, "get_db", lambda: fake_db)
 
     app = FastAPI()
@@ -283,4 +285,53 @@ def appointments_app(monkeypatch, fake_db):
 @pytest.fixture
 def appointments_client(appointments_app):
     app, _appointments_module = appointments_app
+    return TestClient(app)
+
+
+@pytest.fixture
+def queue_app(monkeypatch, fake_db):
+    """Same pattern as billing_app, for routers.queue."""
+    import services.db as db_module
+    import services.auth as auth_module
+    import routers.queue as queue_module
+
+    monkeypatch.setattr(db_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(auth_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(queue_module, "get_db", lambda: fake_db)
+
+    app = FastAPI()
+    app.include_router(queue_module.router, prefix="/queue")
+    return app, queue_module
+
+
+@pytest.fixture
+def queue_client(queue_app):
+    app, _queue_module = queue_app
+    return TestClient(app)
+
+
+@pytest.fixture
+def webhooks_app(monkeypatch, fake_db):
+    """Same pattern as appointments_app, for routers.webhooks."""
+    import services.db as db_module
+    import services.auth as auth_module
+    import routers.webhooks as webhooks_module
+    from services.limiter import limiter
+    from slowapi.errors import RateLimitExceeded
+    from slowapi import _rate_limit_exceeded_handler
+
+    monkeypatch.setattr(db_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(auth_module, "get_db", lambda: fake_db)
+    monkeypatch.setattr(webhooks_module, "get_db", lambda: fake_db)
+
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.include_router(webhooks_module.router, prefix="/webhooks")
+    return app, webhooks_module
+
+
+@pytest.fixture
+def webhooks_client(webhooks_app):
+    app, _webhooks_module = webhooks_app
     return TestClient(app)

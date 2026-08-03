@@ -39,6 +39,7 @@ In production, steps 1-5 run inside a background job worker.
 """
 import re
 import uuid
+import contextvars
 from datetime import datetime, timezone, timedelta
 from services.ai import (
     classify_intent,
@@ -67,6 +68,15 @@ MAX_CLARIFICATION_OPTIONS = 5
 # can't answer it (e.g. none of the offered times work) isn't stuck in an
 # infinite "please reply with a number" loop.
 MAX_CLARIFICATION_RETRIES = 2
+
+# Whether the message currently being processed came from the dashboard's
+# Test Message tool rather than a real patient -- read only at the 3 places
+# that actually write a row (_create_appointment, _create_pending_clarification,
+# _push_review_queue), so a test message's "confirmed" result doesn't create
+# real-looking data. Set once at the top of process_message() rather than
+# threaded as a parameter through every function in this file's call graph,
+# since nearly all of them eventually reach one of those 3 sinks.
+_is_test_message: contextvars.ContextVar[bool] = contextvars.ContextVar("is_test_message", default=False)
 
 _JP_DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"]
 
@@ -114,10 +124,12 @@ def process_message(
     source: str,  # 'line' | 'web' | 'email'
     patient_phone: str | None = None,
     line_user_id: str | None = None,
+    is_test: bool = False,
 ) -> dict:
     """
     Full scheduling pipeline. Returns a status dict describing the outcome.
     """
+    _is_test_message.set(is_test)
     db = get_db()
     now_jst = datetime.now(tz=timezone(timedelta(hours=9)))
     today_str = now_jst.strftime("%Y-%m-%d")
@@ -275,6 +287,7 @@ def _create_appointment(
         "source": source,
         "raw_message": raw_message,
         "line_user_id": line_user_id,
+        "is_test": _is_test_message.get(),
     }
     db.table("appointments").insert(appt_row).execute()
 
@@ -678,6 +691,7 @@ def _create_pending_clarification(
         "field_confidences": None,
         "status": "awaiting_reply",
         "line_user_id": line_user_id,
+        "is_test": _is_test_message.get(),
     }
     db.table("review_queue").insert(item).execute()
     _log_audit(db, clinic_id, "review_item_created", metadata={
@@ -957,6 +971,7 @@ def _push_review_queue(
         "extracted_data": extracted_data,
         "field_confidences": field_confidences,
         "status": status,
+        "is_test": _is_test_message.get(),
     }
     result = db.table("review_queue").insert(item).execute()
     _log_audit(db, clinic_id, "review_item_created", metadata={

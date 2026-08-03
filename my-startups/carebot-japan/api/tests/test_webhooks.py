@@ -10,8 +10,11 @@ clinic never configured its own).
 import hashlib
 import hmac
 import base64
+from unittest.mock import patch
 
 import routers.webhooks as webhooks
+
+CLINIC_ID = "clinic-1"
 
 
 def _sign(secret: str, body: bytes) -> str:
@@ -65,3 +68,60 @@ class TestVerifyLineSignature:
         monkeypatch.delenv("LINE_CHANNEL_SECRET", raising=False)
         body = b'{"destination": "unregistered"}'
         assert webhooks._verify_line_signature(body, "anything", secret=None) is False
+
+
+class TestWebBookingIsTestGating:
+    """
+    POST /webhooks/web is unauthenticated and public (the real patient-facing
+    web widget uses it too), so a client-supplied is_test=True must only be
+    honored when the caller can prove they're an authenticated member of the
+    target clinic -- otherwise anyone could hide real bookings from a
+    clinic's own stats. Only the gating logic is under test here; the actual
+    scheduling pipeline is mocked out.
+    """
+
+    def _payload(self, is_test=True):
+        return {"clinic_id": CLINIC_ID, "message": "hello", "is_test": is_test}
+
+    def test_is_test_ignored_with_no_auth_header(self, webhooks_client):
+        with patch.object(webhooks, "process_message", return_value={"status": "small_talk"}) as mock_process:
+            res = webhooks_client.post("/webhooks/web", json=self._payload())
+
+        assert res.status_code == 200
+        assert mock_process.call_args.kwargs["is_test"] is False
+
+    def test_is_test_ignored_for_a_clinic_the_caller_does_not_belong_to(self, webhooks_client, seed_clinic):
+        seed_clinic(clinic_id="other-clinic", token="owner-token")
+
+        with patch.object(webhooks, "process_message", return_value={"status": "small_talk"}) as mock_process:
+            res = webhooks_client.post(
+                "/webhooks/web", json=self._payload(),
+                headers={"Authorization": "Bearer owner-token"},
+            )
+
+        assert res.status_code == 200
+        assert mock_process.call_args.kwargs["is_test"] is False
+
+    def test_is_test_honored_for_an_authenticated_member_of_the_clinic(self, webhooks_client, seed_clinic):
+        seed_clinic(clinic_id=CLINIC_ID, token="owner-token")
+
+        with patch.object(webhooks, "process_message", return_value={"status": "small_talk"}) as mock_process:
+            res = webhooks_client.post(
+                "/webhooks/web", json=self._payload(),
+                headers={"Authorization": "Bearer owner-token"},
+            )
+
+        assert res.status_code == 200
+        assert mock_process.call_args.kwargs["is_test"] is True
+
+    def test_is_test_false_stays_false_even_when_authenticated(self, webhooks_client, seed_clinic):
+        seed_clinic(clinic_id=CLINIC_ID, token="owner-token")
+
+        with patch.object(webhooks, "process_message", return_value={"status": "small_talk"}) as mock_process:
+            res = webhooks_client.post(
+                "/webhooks/web", json=self._payload(is_test=False),
+                headers={"Authorization": "Bearer owner-token"},
+            )
+
+        assert res.status_code == 200
+        assert mock_process.call_args.kwargs["is_test"] is False

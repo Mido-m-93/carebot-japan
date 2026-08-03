@@ -15,7 +15,8 @@ import hmac
 import os
 import base64
 import re
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from typing import Annotated
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Header
 from pydantic import BaseModel
 from services.db import get_db
 from services.scheduling import process_message
@@ -23,6 +24,7 @@ from services.email import send_appointment_confirmation, send_plain_email
 from services.line import send_line_reply
 from services.ai import generate_confirmation
 from services.limiter import limiter
+from services.auth import _get_authenticated_user_id, _get_clinics_for_user
 
 router = APIRouter()
 
@@ -387,11 +389,16 @@ class WebBookingRequest(BaseModel):
     clinic_id: str
     message: str
     patient_phone: str | None = None
+    is_test: bool = False
 
 
 @router.post("/web")
 @limiter.limit("10/minute")
-async def web_booking(request: Request, payload: WebBookingRequest):
+async def web_booking(
+    request: Request,
+    payload: WebBookingRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
     """
     Direct booking from the clinic's web widget or the dashboard test form.
     Processes synchronously and returns the result immediately.
@@ -399,12 +406,26 @@ async def web_booking(request: Request, payload: WebBookingRequest):
     Unauthenticated and public, and every call triggers paid LLM calls
     (see services/ai.py), so it's rate limited per-IP to keep a scripted
     flood from running up the AI bill.
+
+    is_test is only honored when the caller is an authenticated member of
+    the target clinic (the dashboard's Test Message tool always sends its
+    session token) -- otherwise an anonymous caller could claim is_test=True
+    to hide real bookings from the clinic's own stats.
     """
+    is_test = False
+    if payload.is_test and authorization:
+        try:
+            user_id = _get_authenticated_user_id(authorization)
+            is_test = any(c["id"] == payload.clinic_id for c in _get_clinics_for_user(user_id))
+        except HTTPException:
+            is_test = False
+
     result = process_message(
         clinic_id=payload.clinic_id,
         raw_message=payload.message,
         source="web",
         patient_phone=payload.patient_phone,
+        is_test=is_test,
     )
     return result
 

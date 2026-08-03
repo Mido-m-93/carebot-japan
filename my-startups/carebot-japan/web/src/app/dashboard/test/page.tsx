@@ -49,7 +49,12 @@ export default function TestPage() {
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
           "X-Clinic-Id": activeClinicId,
         },
-        body: JSON.stringify({ clinic_id: activeClinicId, message: message.trim(), patient_phone: phone.trim() || null }),
+        body: JSON.stringify({
+          clinic_id: activeClinicId,
+          message: message.trim(),
+          patient_phone: phone.trim() || null,
+          is_test: true,
+        }),
       });
       if (!res.ok) {
         const text = await res.text();

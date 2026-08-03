@@ -227,8 +227,14 @@ def list_appointments(
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     from_date: str = Query(default=None, description="YYYY-MM-DD"),
     to_date: str = Query(default=None, description="YYYY-MM-DD"),
+    include_test: bool = Query(default=False, description="Include rows created by the Test Message tool"),
 ):
-    """List appointments for the caller's clinic, optionally filtered by date range."""
+    """
+    List appointments for the caller's clinic, optionally filtered by date
+    range. Excludes Test Message tool rows (is_test) by default so they
+    never pollute the real dashboard/stats -- pass include_test=true to see
+    them (e.g. for cleanup).
+    """
     clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     query = (
@@ -237,6 +243,8 @@ def list_appointments(
         .eq("clinic_id", clinic_id)
         .order("created_at", desc=True)
     )
+    if not include_test:
+        query = query.eq("is_test", False)
     if from_date:
         query = query.gte("scheduled_at", f"{from_date}T00:00:00+09:00")
     if to_date:

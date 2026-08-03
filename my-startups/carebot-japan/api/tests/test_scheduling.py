@@ -1110,3 +1110,97 @@ class TestBilingualLanguageDetection:
 
         assert result["status"] == "confirmed"
         assert result["lang"] == "en"
+
+
+class TestIsTestFlag:
+    """
+    process_message(is_test=True) must tag every row it creates so the Test
+    Message tool's activity never shows up as real clinic data (see
+    routers/appointments.py and routers/queue.py's is_test filtering).
+    """
+
+    def test_confirmed_booking_is_tagged(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
+                source="web", is_test=True,
+            )
+
+        assert result["status"] == "confirmed"
+        assert clinic.rows["appointments"][0]["is_test"] is True
+
+    def test_real_booking_is_not_tagged(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
+                source="web",
+            )
+
+        assert result["status"] == "confirmed"
+        assert clinic.rows["appointments"][0]["is_test"] is False
+
+    def test_review_queue_escalation_is_tagged(self, clinic):
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "out_of_scope_but_unexpected", "confidence": 0.9}):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="???", source="web", is_test=True,
+            )
+
+        assert result["status"] == "queued_for_review"
+        assert clinic.rows["review_queue"][0]["is_test"] is True
+
+    def test_pending_clarification_is_tagged(self, clinic):
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": None, "preferred_date": None, "preferred_time": None,
+                 "visit_reason": None, "confidence": 0.0, "field_confidences": {},
+             }):
+            result = scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="I would like to book an appointment please",
+                source="line", line_user_id="Utest", is_test=True,
+            )
+
+        assert result["status"] == "awaiting_booking_details"
+        assert clinic.rows["review_queue"][0]["is_test"] is True
+
+    def test_is_test_does_not_leak_into_the_next_call(self, clinic):
+        """
+        _is_test_message is set at the top of every process_message() call --
+        a prior call's is_test=True must not leak into a later real call that
+        doesn't pass it. Uses two different times so the second call books
+        its own slot instead of colliding with the first.
+        """
+        clinic.rows["appointments"] = []
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "10:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 10am",
+                source="web", is_test=True,
+            )
+
+        with patch.object(scheduling, "classify_intent", return_value={"intent": "appointment_request", "confidence": 0.95}), \
+             patch.object(scheduling, "extract_appointment", return_value={
+                 "patient_name": "Test Patient", "preferred_date": "2099-01-01", "preferred_time": "11:00",
+                 "visit_reason": "checkup", "confidence": 0.95, "field_confidences": {},
+             }):
+            scheduling.process_message(
+                clinic_id=CLINIC_ID, raw_message="book me for Jan 1 at 11am",
+                source="web",
+            )
+
+        assert len(clinic.rows["appointments"]) == 2
+        assert clinic.rows["appointments"][0]["is_test"] is True
+        assert clinic.rows["appointments"][1]["is_test"] is False
