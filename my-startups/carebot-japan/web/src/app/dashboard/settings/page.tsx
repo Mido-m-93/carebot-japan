@@ -34,6 +34,17 @@ const copy = {
     loading: "Loading settings...",
     line_section_title: "LINE integration",
     line_section_hint: "Connect your clinic's own LINE Official Account so patients can book through LINE.",
+    line_steps_title: "How to connect",
+    line_steps: [
+      "Open the LINE Developers Console and create (or select) a Messaging API channel for your clinic.",
+      "Copy the Channel ID and Channel secret from that channel's \"Basic settings\" tab.",
+      "On the \"Messaging API\" tab, issue a channel access token (long-lived) and copy it.",
+      "Paste all three values below and save.",
+    ],
+    line_webhook_step: "Still on the \"Messaging API\" tab, set the Webhook URL to the address below and turn on \"Use webhook\".",
+    line_webhook_url_label: "Webhook URL",
+    line_copy: "Copy",
+    line_copied: "Copied!",
     line_channel_id_label: "LINE Channel ID",
     line_channel_id_placeholder: "e.g. 1234567890",
     line_channel_secret_label: "Channel secret",
@@ -61,6 +72,17 @@ const copy = {
     loading: "設定を読み込み中...",
     line_section_title: "LINE連携",
     line_section_hint: "貴院独自のLINE公式アカウントを連携すると、患者様がLINEから予約できるようになります。",
+    line_steps_title: "連携方法",
+    line_steps: [
+      "LINE Developers コンソールを開き、貴院用のMessaging APIチャネルを作成（または選択）します。",
+      "チャネルの「チャネル基本設定」タブから チャンネルID と チャンネルシークレット をコピーします。",
+      "「Messaging API設定」タブで チャンネルアクセストークン（長期）を発行し、コピーします。",
+      "上記3つの値を下記に貼り付けて保存します。",
+    ],
+    line_webhook_step: "同じ「Messaging API設定」タブで、Webhook URLを下記のアドレスに設定し、「Webhookの利用」をオンにします。",
+    line_webhook_url_label: "Webhook URL",
+    line_copy: "コピー",
+    line_copied: "コピーしました！",
     line_channel_id_label: "LINE チャンネルID",
     line_channel_id_placeholder: "例：1234567890",
     line_channel_secret_label: "チャンネルシークレット",
@@ -91,6 +113,8 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [webhookCopied, setWebhookCopied] = useState(false);
+  const webhookUrl = `${API_URL}/webhooks/line`;
 
   async function load() {
     try {
@@ -251,6 +275,35 @@ export default function SettingsPage() {
               </span>
             </div>
             <p className="text-xs text-gray-400 mb-4">{c.line_section_hint}</p>
+
+            <div className="bg-gray-50 border border-gray-100 rounded-lg px-4 py-3 mb-4">
+              <p className="text-xs font-medium text-gray-600 mb-2">{c.line_steps_title}</p>
+              <ol className="list-decimal list-inside space-y-1.5">
+                {c.line_steps.map((step) => (
+                  <li key={step} className="text-xs text-gray-500 leading-relaxed">{step}</li>
+                ))}
+              </ol>
+              <p className="text-xs text-gray-500 leading-relaxed mt-1.5">
+                <span className="inline-block w-4">5.</span>
+                {c.line_webhook_step}
+              </p>
+              <div className="mt-2 ml-4 flex items-center gap-2">
+                <code className="flex-1 min-w-0 truncate text-xs bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-700">
+                  {webhookUrl}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(webhookUrl);
+                    setWebhookCopied(true);
+                    setTimeout(() => setWebhookCopied(false), 2000);
+                  }}
+                  className="flex-shrink-0 text-xs font-medium text-teal-700 border border-teal-300 px-2.5 py-1.5 rounded-lg hover:bg-teal-50 transition-colors"
+                >
+                  {webhookCopied ? c.line_copied : c.line_copy}
+                </button>
+              </div>
+            </div>
 
             <div className="space-y-3">
               <div>
