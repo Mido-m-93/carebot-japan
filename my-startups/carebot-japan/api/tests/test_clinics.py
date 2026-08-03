@@ -6,6 +6,68 @@ being editable directly in Supabase.
 """
 
 
+class TestOnboardClinicLineChannelIdUniqueness:
+    """
+    Two clinics silently sharing a LINE Channel ID used to route real
+    patient messages to whichever clinic's row the database happened to
+    return first (see routers/webhooks.py's _resolve_clinic_by_line_channel).
+    onboard_clinic must reject a duplicate before it ever gets created.
+    """
+
+    def test_rejects_a_line_channel_id_already_used_by_another_clinic(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(clinic_id="clinic-1", token="existing-owner-token", line_channel_id="shared-channel")
+        fake_db.auth.register_token("new-user-token", "new-user-1")
+
+        res = clinics_client.post(
+            "/clinics/onboard",
+            json={"name": "New Clinic", "line_channel_id": "shared-channel"},
+            headers={"Authorization": "Bearer new-user-token"},
+        )
+
+        assert res.status_code == 409
+        assert "already connected" in res.json()["detail"].lower()
+        # No orphaned clinic (or clinic_users row) was left behind.
+        assert len(fake_db.rows.get("clinics", [])) == 1
+        assert len(fake_db.rows.get("clinic_users", [])) == 1
+
+    def test_allows_a_unique_line_channel_id(self, clinics_client, fake_db):
+        fake_db.auth.register_token("new-user-token", "new-user-1")
+
+        res = clinics_client.post(
+            "/clinics/onboard",
+            json={"name": "New Clinic", "line_channel_id": "unique-channel"},
+            headers={"Authorization": "Bearer new-user-token"},
+        )
+
+        assert res.status_code == 200
+        assert fake_db.rows["clinics"][0]["line_channel_id"] == "unique-channel"
+
+    def test_allows_onboarding_with_no_line_channel_id(self, clinics_client, fake_db):
+        fake_db.auth.register_token("new-user-token", "new-user-1")
+
+        res = clinics_client.post(
+            "/clinics/onboard",
+            json={"name": "New Clinic"},
+            headers={"Authorization": "Bearer new-user-token"},
+        )
+
+        assert res.status_code == 200
+
+
+class TestCreateLocationLineChannelIdUniqueness:
+    def test_rejects_a_line_channel_id_already_used_by_another_clinic(self, clinics_client, seed_clinic, fake_db):
+        _primary_id, token = seed_clinic(token="owner-token", tier="enterprise")
+        seed_clinic(clinic_id="other-clinic", user_id="user-2", token="other-token", line_channel_id="taken-channel")
+
+        res = clinics_client.post(
+            "/clinics/locations",
+            json={"name": "Branch", "line_channel_id": "taken-channel"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert res.status_code == 409
+
+
 class TestGetMyClinic:
     def test_returns_editable_fields_for_the_settings_page(self, clinics_client, seed_clinic, fake_db):
         seed_clinic(token="owner-token", name_jp="テストクリニック", phone="03-0000-0000")
@@ -134,6 +196,32 @@ class TestUpdateMyClinic:
         # Never echoed back in the response, even right after setting it.
         assert "line_channel_secret" not in res.json()
         assert "line_channel_access_token" not in res.json()
+
+    def test_rejects_a_line_channel_id_already_used_by_another_clinic(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(clinic_id="clinic-1", token="owner-token")
+        seed_clinic(clinic_id="clinic-2", user_id="user-2", token="other-token", line_channel_id="taken-channel")
+
+        res = clinics_client.patch(
+            "/clinics/me",
+            json={"line_channel_id": "taken-channel"},
+            headers={"Authorization": "Bearer owner-token"},
+        )
+
+        assert res.status_code == 409
+        assert "already connected" in res.json()["detail"].lower()
+        assert fake_db.rows["clinics"][0].get("line_channel_id") is None  # unchanged
+
+    def test_can_set_its_own_line_channel_id_to_the_value_it_already_has(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(token="owner-token", line_channel_id="my-channel")
+
+        res = clinics_client.patch(
+            "/clinics/me",
+            json={"name": "Renamed Clinic", "line_channel_id": "my-channel"},
+            headers={"Authorization": "Bearer owner-token"},
+        )
+
+        assert res.status_code == 200
+        assert fake_db.rows["clinics"][0]["line_channel_id"] == "my-channel"
 
     def test_blank_line_channel_secret_does_not_clear_an_existing_one(self, clinics_client, seed_clinic, fake_db):
         """
