@@ -34,7 +34,11 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { lang, toggle, t } = useLanguage();
   const { locations, activeClinicId, setActiveClinicId, loading: clinicLoading } = useClinicContext();
-  const bookingSlug = locations.find((loc) => loc.clinic_id === activeClinicId)?.slug ?? null;
+  const activeClinic = locations.find((loc) => loc.clinic_id === activeClinicId);
+  const bookingSlug = activeClinic?.slug ?? null;
+  const brandName = activeClinic
+    ? (lang === "ja" ? activeClinic.name_jp || activeClinic.name : activeClinic.name)
+    : "CareBot Japan";
 
   const navItems = [
     { href: "/dashboard", label: t.nav_overview },
@@ -63,7 +67,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className="w-56 bg-teal-800 text-teal-50 flex flex-col shrink-0">
         <div className="px-5 py-5 border-b border-teal-600">
-          <p className="font-semibold text-sm tracking-wide">CareBot Japan</p>
+          <p className="font-semibold text-sm tracking-wide">{brandName}</p>
           {locations.length > 1 ? (
             <select
               value={activeClinicId ?? ""}
@@ -112,8 +116,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
           )}
         </nav>
         <div className="px-5 py-4 border-t border-teal-600 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-teal-400">MVP v0.1</p>
+          <div className="flex items-center justify-end">
             {/* Language toggle */}
             <button
               onClick={toggle}
