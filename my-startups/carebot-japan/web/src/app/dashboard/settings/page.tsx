@@ -37,23 +37,24 @@ const copy = {
     line_steps_title: "How to connect",
     line_steps: [
       "Open the LINE Developers Console and create (or select) a Messaging API channel for your clinic.",
-      "Copy the Channel ID and Channel secret from that channel's \"Basic settings\" tab.",
+      "Copy the Channel secret from that channel's \"Basic settings\" tab.",
       "On the \"Messaging API\" tab, issue a channel access token (long-lived) and copy it.",
+      "Find your Bot User ID -- LINE's console doesn't show it directly. Call https://api.line.me/v2/bot/info with that access token (Authorization: Bearer header); the response's \"userId\" field (starts with \"U\") is the value you need.",
       "Paste all three values below and save.",
     ],
     line_webhook_step: "Still on the \"Messaging API\" tab, set the Webhook URL to the address below and turn on \"Use webhook\".",
     line_webhook_url_label: "Webhook URL",
     line_copy: "Copy",
     line_copied: "Copied!",
-    line_channel_id_label: "LINE Channel ID",
-    line_channel_id_placeholder: "e.g. 1234567890",
+    line_channel_id_label: "LINE Bot User ID",
+    line_channel_id_placeholder: "e.g. U1234567890abcdef1234567890abcdef",
     line_channel_secret_label: "Channel secret",
     line_channel_token_label: "Channel access token",
     line_placeholder_configured: "Already set — leave blank to keep it",
     line_placeholder_empty: "Not set",
     line_configured_badge: "Connected",
     line_not_configured_badge: "Not connected",
-    line_find_hint: "Found in the LINE Developers Console, under your channel's Basic settings / Messaging API tabs.",
+    line_find_hint: "Channel secret and access token: LINE Developers Console's Basic settings / Messaging API tabs. Bot User ID: see step 4 above.",
   },
   ja: {
     title: "設定",
@@ -75,23 +76,24 @@ const copy = {
     line_steps_title: "連携方法",
     line_steps: [
       "LINE Developers コンソールを開き、貴院用のMessaging APIチャネルを作成（または選択）します。",
-      "チャネルの「チャネル基本設定」タブから チャンネルID と チャンネルシークレット をコピーします。",
+      "チャネルの「チャネル基本設定」タブから チャンネルシークレット をコピーします。",
       "「Messaging API設定」タブで チャンネルアクセストークン（長期）を発行し、コピーします。",
+      "Bot User ID を確認します（LINEのコンソールには直接表示されません）。そのアクセストークンを使って https://api.line.me/v2/bot/info を呼び出し（Authorization: Bearer ヘッダー）、レスポンスの \"userId\"（\"U\"で始まる値）が必要な値です。",
       "上記3つの値を下記に貼り付けて保存します。",
     ],
     line_webhook_step: "同じ「Messaging API設定」タブで、Webhook URLを下記のアドレスに設定し、「Webhookの利用」をオンにします。",
     line_webhook_url_label: "Webhook URL",
     line_copy: "コピー",
     line_copied: "コピーしました！",
-    line_channel_id_label: "LINE チャンネルID",
-    line_channel_id_placeholder: "例：1234567890",
+    line_channel_id_label: "LINE Bot User ID",
+    line_channel_id_placeholder: "例：U1234567890abcdef1234567890abcdef",
     line_channel_secret_label: "チャンネルシークレット",
     line_channel_token_label: "チャンネルアクセストークン",
     line_placeholder_configured: "設定済み — 変更しない場合は空欄のままにしてください",
     line_placeholder_empty: "未設定",
     line_configured_badge: "連携済み",
     line_not_configured_badge: "未連携",
-    line_find_hint: "LINE Developers コンソールの「チャネル基本設定」「Messaging API設定」タブで確認できます。",
+    line_find_hint: "チャンネルシークレットとアクセストークン: LINE Developers コンソールの「チャネル基本設定」「Messaging API設定」タブ。Bot User ID: 上記の手順4を参照してください。",
   },
 };
 
@@ -288,7 +290,7 @@ export default function SettingsPage() {
                 ))}
               </ol>
               <p className="text-xs text-gray-500 leading-relaxed mt-1.5">
-                <span className="inline-block w-4">5.</span>
+                <span className="inline-block w-4">6.</span>
                 {c.line_webhook_step}
               </p>
               <div className="mt-2 ml-4 flex items-center gap-2">
