@@ -4,6 +4,9 @@ Tests for routers/clinics.py's PATCH /clinics/me -- lets a clinic owner
 rename their clinic (and update phone) from the dashboard, instead of only
 being editable directly in Supabase.
 """
+from unittest.mock import patch
+
+import routers.clinics as clinics_module
 
 
 class TestOnboardClinicLineChannelIdUniqueness:
@@ -184,11 +187,12 @@ class TestUpdateMyClinic:
 
     def test_owner_can_set_line_channel_secret_and_token(self, clinics_client, seed_clinic, fake_db):
         seed_clinic(token="owner-token")
-        res = clinics_client.patch(
-            "/clinics/me",
-            json={"line_channel_secret": "s3cr3t", "line_channel_access_token": "t0k3n"},
-            headers={"Authorization": "Bearer owner-token"},
-        )
+        with patch.object(clinics_module, "get_bot_user_id", return_value="Uauto-detected00000000000000000000"):
+            res = clinics_client.patch(
+                "/clinics/me",
+                json={"line_channel_secret": "s3cr3t", "line_channel_access_token": "t0k3n"},
+                headers={"Authorization": "Bearer owner-token"},
+            )
 
         assert res.status_code == 200
         assert fake_db.rows["clinics"][0]["line_channel_secret"] == "s3cr3t"
@@ -196,6 +200,64 @@ class TestUpdateMyClinic:
         # Never echoed back in the response, even right after setting it.
         assert "line_channel_secret" not in res.json()
         assert "line_channel_access_token" not in res.json()
+
+    def test_saving_a_new_access_token_auto_detects_the_bot_user_id(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(token="owner-token")
+        with patch.object(clinics_module, "get_bot_user_id", return_value="Uauto-detected00000000000000000000") as mock_lookup:
+            res = clinics_client.patch(
+                "/clinics/me",
+                json={"line_channel_access_token": "t0k3n"},
+                headers={"Authorization": "Bearer owner-token"},
+            )
+
+        mock_lookup.assert_called_once_with("t0k3n")
+        assert res.status_code == 200
+        assert fake_db.rows["clinics"][0]["line_channel_id"] == "Uauto-detected00000000000000000000"
+        assert res.json()["line_channel_id"] == "Uauto-detected00000000000000000000"
+        assert "line_channel_id_lookup_failed" not in res.json()
+
+    def test_auto_detected_id_overrides_a_manually_submitted_one_in_the_same_request(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(token="owner-token")
+        with patch.object(clinics_module, "get_bot_user_id", return_value="Uauto-detected00000000000000000000"):
+            res = clinics_client.patch(
+                "/clinics/me",
+                json={"line_channel_id": "manually-typed-value", "line_channel_access_token": "t0k3n"},
+                headers={"Authorization": "Bearer owner-token"},
+            )
+
+        assert res.status_code == 200
+        assert fake_db.rows["clinics"][0]["line_channel_id"] == "Uauto-detected00000000000000000000"
+
+    def test_lookup_failure_still_saves_secret_and_token_and_flags_it(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(token="owner-token")
+        with patch.object(clinics_module, "get_bot_user_id", return_value=None):
+            res = clinics_client.patch(
+                "/clinics/me",
+                json={"line_channel_secret": "s3cr3t", "line_channel_access_token": "bad-or-expired-token"},
+                headers={"Authorization": "Bearer owner-token"},
+            )
+
+        assert res.status_code == 200
+        assert res.json()["line_channel_id_lookup_failed"] is True
+        assert fake_db.rows["clinics"][0]["line_channel_secret"] == "s3cr3t"
+        assert fake_db.rows["clinics"][0]["line_channel_access_token"] == "bad-or-expired-token"
+        # Unchanged -- lookup failed, so no line_channel_id was set.
+        assert fake_db.rows["clinics"][0].get("line_channel_id") is None
+
+    def test_auto_detected_id_is_still_checked_for_uniqueness(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(clinic_id="clinic-1", token="owner-token")
+        seed_clinic(clinic_id="clinic-2", user_id="user-2", token="other-token", line_channel_id="Ualready-taken0000000000000000000")
+
+        with patch.object(clinics_module, "get_bot_user_id", return_value="Ualready-taken0000000000000000000"):
+            res = clinics_client.patch(
+                "/clinics/me",
+                json={"line_channel_access_token": "t0k3n"},
+                headers={"Authorization": "Bearer owner-token"},
+            )
+
+        assert res.status_code == 409
+        # Nothing was saved -- the conflict is caught before the update call.
+        assert fake_db.rows["clinics"][0].get("line_channel_access_token") is None
 
     def test_rejects_a_line_channel_id_already_used_by_another_clinic(self, clinics_client, seed_clinic, fake_db):
         seed_clinic(clinic_id="clinic-1", token="owner-token")

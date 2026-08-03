@@ -7,6 +7,35 @@ import os
 import httpx
 
 LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push"
+LINE_BOT_INFO_URL = "https://api.line.me/v2/bot/info"
+
+
+def get_bot_user_id(access_token: str) -> str | None:
+    """
+    Look up a LINE bot's own User ID via its channel access token.
+
+    This is the value LINE sends as the webhook's `destination` field
+    (matched against clinics.line_channel_id in
+    routers/webhooks.py's _resolve_clinic_by_line_channel) -- but LINE's own
+    Developers Console never displays it directly anywhere. Calling this
+    lets Settings auto-detect it instead of requiring a clinic owner to find
+    and paste it in manually.
+
+    Returns None if the lookup fails (bad/expired token, LINE API down,
+    etc.) -- callers should still let the secret/token save succeed and
+    surface a "couldn't auto-detect" notice rather than blocking on this.
+    """
+    try:
+        resp = httpx.get(
+            LINE_BOT_INFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json().get("userId")
+    except Exception as e:
+        print(f"[line] Failed to look up bot info: {e}")
+        return None
 
 
 def send_line_reply(user_id: str, text: str, access_token: str | None = None) -> bool:

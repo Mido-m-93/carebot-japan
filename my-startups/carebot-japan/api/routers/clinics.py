@@ -17,6 +17,7 @@ from typing import Annotated
 from services.db import get_db
 from services.auth import resolve_clinic, _get_authenticated_user_id, _get_clinics_for_user
 from services.limiter import limiter
+from services.line import get_bot_user_id
 
 router = APIRouter()
 
@@ -254,8 +255,25 @@ def update_my_clinic(
     # credential.
     if body.line_channel_secret is not None and body.line_channel_secret.strip():
         updates["line_channel_secret"] = body.line_channel_secret.strip()
+
+    line_channel_id_lookup_failed = False
     if body.line_channel_access_token is not None and body.line_channel_access_token.strip():
-        updates["line_channel_access_token"] = body.line_channel_access_token.strip()
+        token = body.line_channel_access_token.strip()
+        updates["line_channel_access_token"] = token
+
+        # Auto-detect the Bot User ID from LINE's own API instead of
+        # requiring the owner to find/paste it manually -- LINE's console
+        # never shows this value directly anywhere. Overrides any
+        # line_channel_id submitted in this same request, since the
+        # detected value is authoritative. The secret/token above still get
+        # saved even if this lookup fails; the frontend surfaces a
+        # "couldn't auto-detect" notice instead of blocking the save.
+        bot_user_id = get_bot_user_id(token)
+        if bot_user_id:
+            _ensure_line_channel_id_available(db, bot_user_id, exclude_clinic_id=clinic_id)
+            updates["line_channel_id"] = bot_user_id
+        else:
+            line_channel_id_lookup_failed = True
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -267,6 +285,8 @@ def update_my_clinic(
     response = {"clinic_id": clinic_id, **updates}
     response.pop("line_channel_secret", None)
     response.pop("line_channel_access_token", None)
+    if line_channel_id_lookup_failed:
+        response["line_channel_id_lookup_failed"] = True
     return response
 
 
