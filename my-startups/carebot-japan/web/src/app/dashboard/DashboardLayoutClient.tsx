@@ -115,22 +115,20 @@ function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           )}
         </nav>
-        <div className="px-5 py-4 border-t border-teal-600 space-y-2">
-          <div className="flex items-center justify-end">
-            {/* Language toggle */}
-            <button
-              onClick={toggle}
-              className="text-xs font-semibold text-teal-200 hover:text-white border border-teal-600 hover:border-teal-400 rounded px-1.5 py-0.5 transition-colors"
-              title={lang === "en" ? "日本語に切替" : "Switch to English"}
-            >
-              {lang === "en" ? "日本語" : "EN"}
-            </button>
-          </div>
+        <div className="px-5 py-4 border-t border-teal-600 flex items-center justify-between">
           <button
             onClick={handleLogout}
-            className="w-full text-left text-xs text-teal-300 hover:text-white transition-colors py-1"
+            className="text-xs text-teal-300 hover:text-white transition-colors"
           >
             {t.nav_signout}
+          </button>
+          {/* Language toggle */}
+          <button
+            onClick={toggle}
+            className="text-xs font-semibold text-teal-200 hover:text-white border border-teal-600 hover:border-teal-400 rounded px-1.5 py-0.5 transition-colors"
+            title={lang === "en" ? "日本語に切替" : "Switch to English"}
+          >
+            {lang === "en" ? "日本語" : "EN"}
           </button>
         </div>
       </aside>
