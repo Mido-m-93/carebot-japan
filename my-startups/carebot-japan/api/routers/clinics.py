@@ -172,6 +172,11 @@ def get_my_clinic(
         "phone": clinic.get("phone"),
         "slug": clinic.get("slug"),
         "role": clinic.get("role"),
+        "line_channel_id": clinic.get("line_channel_id"),
+        # Never return the actual secret/access token to the client -- just
+        # whether both are set, so the settings page can show "configured"
+        # without ever re-exposing the values themselves.
+        "line_channel_configured": bool(clinic.get("line_channel_secret")) and bool(clinic.get("line_channel_access_token")),
     }
 
 
@@ -181,6 +186,9 @@ class UpdateClinicRequest(BaseModel):
     name: str | None = None
     name_jp: str | None = None
     phone: str | None = None
+    line_channel_id: str | None = None
+    line_channel_secret: str | None = None
+    line_channel_access_token: str | None = None
 
 
 @router.patch("/me")
@@ -209,6 +217,18 @@ def update_my_clinic(
         updates["name_jp"] = body.name_jp.strip() or None
     if body.phone is not None:
         updates["phone"] = body.phone.strip() or None
+    if body.line_channel_id is not None:
+        updates["line_channel_id"] = body.line_channel_id.strip() or None
+    # line_channel_secret / line_channel_access_token are masked on the
+    # settings page (never sent back to the client -- see GET /clinics/me),
+    # so only overwrite them when a real value is submitted. An empty string
+    # means "left blank", not "clear it" -- otherwise re-saving the form
+    # without touching these fields would wipe an already-configured
+    # credential.
+    if body.line_channel_secret is not None and body.line_channel_secret.strip():
+        updates["line_channel_secret"] = body.line_channel_secret.strip()
+    if body.line_channel_access_token is not None and body.line_channel_access_token.strip():
+        updates["line_channel_access_token"] = body.line_channel_access_token.strip()
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -216,7 +236,12 @@ def update_my_clinic(
     db = get_db()
     db.table("clinics").update(updates).eq("id", clinic_id).execute()
 
-    return {"clinic_id": clinic_id, **updates}
+    # Never echo the secret/access token back, even right after the caller
+    # themselves just set them -- same rule as GET /clinics/me.
+    response = {"clinic_id": clinic_id, **updates}
+    response.pop("line_channel_secret", None)
+    response.pop("line_channel_access_token", None)
+    return response
 
 
 # ── GET /clinics/locations ─────────────────────────────────────────────────────

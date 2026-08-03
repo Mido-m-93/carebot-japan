@@ -18,6 +18,33 @@ class TestGetMyClinic:
         assert body["phone"] == "03-0000-0000"
         assert body["role"] == "owner"
 
+    def test_line_channel_configured_is_false_when_not_set_up(self, clinics_client, seed_clinic):
+        seed_clinic(token="owner-token")
+        res = clinics_client.get("/clinics/me", headers={"Authorization": "Bearer owner-token"})
+
+        assert res.status_code == 200
+        assert res.json()["line_channel_configured"] is False
+
+    def test_line_channel_configured_requires_both_secret_and_token(self, clinics_client, seed_clinic):
+        seed_clinic(token="owner-token", line_channel_secret="s3cr3t")
+        res = clinics_client.get("/clinics/me", headers={"Authorization": "Bearer owner-token"})
+
+        # Secret alone isn't enough -- both must be set for LINE replies to work.
+        assert res.json()["line_channel_configured"] is False
+
+    def test_line_channel_configured_true_and_secret_never_leaked(self, clinics_client, seed_clinic):
+        seed_clinic(
+            token="owner-token",
+            line_channel_secret="s3cr3t",
+            line_channel_access_token="t0k3n",
+        )
+        res = clinics_client.get("/clinics/me", headers={"Authorization": "Bearer owner-token"})
+
+        body = res.json()
+        assert body["line_channel_configured"] is True
+        assert "line_channel_secret" not in body
+        assert "line_channel_access_token" not in body
+
 
 class TestUpdateMyClinic:
     def test_owner_can_update_name(self, clinics_client, seed_clinic, fake_db):
@@ -81,6 +108,51 @@ class TestUpdateMyClinic:
     def test_requires_auth(self, clinics_client):
         res = clinics_client.patch("/clinics/me", json={"name": "New Name"})
         assert res.status_code == 401
+
+    def test_owner_can_set_line_channel_id(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(token="owner-token")
+        res = clinics_client.patch(
+            "/clinics/me",
+            json={"line_channel_id": "1234567890"},
+            headers={"Authorization": "Bearer owner-token"},
+        )
+
+        assert res.status_code == 200
+        assert fake_db.rows["clinics"][0]["line_channel_id"] == "1234567890"
+
+    def test_owner_can_set_line_channel_secret_and_token(self, clinics_client, seed_clinic, fake_db):
+        seed_clinic(token="owner-token")
+        res = clinics_client.patch(
+            "/clinics/me",
+            json={"line_channel_secret": "s3cr3t", "line_channel_access_token": "t0k3n"},
+            headers={"Authorization": "Bearer owner-token"},
+        )
+
+        assert res.status_code == 200
+        assert fake_db.rows["clinics"][0]["line_channel_secret"] == "s3cr3t"
+        assert fake_db.rows["clinics"][0]["line_channel_access_token"] == "t0k3n"
+        # Never echoed back in the response, even right after setting it.
+        assert "line_channel_secret" not in res.json()
+        assert "line_channel_access_token" not in res.json()
+
+    def test_blank_line_channel_secret_does_not_clear_an_existing_one(self, clinics_client, seed_clinic, fake_db):
+        """
+        Regression guard: the settings page's secret/token fields are always
+        masked blank (the API never returns their real value), so submitting
+        the form without touching them must NOT wipe out an already-
+        configured credential.
+        """
+        seed_clinic(token="owner-token", line_channel_secret="existing-secret", line_channel_access_token="existing-token")
+        res = clinics_client.patch(
+            "/clinics/me",
+            json={"name": "Renamed Clinic", "line_channel_secret": "", "line_channel_access_token": ""},
+            headers={"Authorization": "Bearer owner-token"},
+        )
+
+        assert res.status_code == 200
+        assert fake_db.rows["clinics"][0]["name"] == "Renamed Clinic"
+        assert fake_db.rows["clinics"][0]["line_channel_secret"] == "existing-secret"
+        assert fake_db.rows["clinics"][0]["line_channel_access_token"] == "existing-token"
 
 
 class TestUpdateLocationStatus:
