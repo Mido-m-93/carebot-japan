@@ -10,10 +10,7 @@ const copy = {
     subtitle: "Tell us about your clinic to get started",
     clinic_name: "Clinic name",
     clinic_name_placeholder: "e.g. Sakura Family Clinic",
-    line_channel_id: "LINE Bot User ID",
-    line_channel_id_placeholder: "e.g. U1234567890abcdef1234567890abcdef",
-    line_channel_id_hint: "Optional — see Settings after signup for exactly where to find this",
-    line_setup_later_hint: "You'll add your Channel secret & access token later, from Settings.",
+    line_setup_later_hint: "You can connect your clinic's LINE Official Account anytime from Settings after signup.",
     phone: "Phone number",
     phone_placeholder: "e.g. 03-1234-5678",
     phone_hint: "Optional — shown to patients on the booking form",
@@ -30,10 +27,7 @@ const copy = {
     subtitle: "クリニックの情報を入力してください",
     clinic_name: "クリニック名",
     clinic_name_placeholder: "例：さくら家族クリニック",
-    line_channel_id: "LINE Bot User ID",
-    line_channel_id_placeholder: "例：U1234567890abcdef1234567890abcdef",
-    line_channel_id_hint: "任意 — サインアップ後、設定画面で確認方法をご案内します",
-    line_setup_later_hint: "チャンネルシークレットとアクセストークンは、後で設定画面から追加できます。",
+    line_setup_later_hint: "貴院のLINE公式アカウントは、サインアップ後いつでも設定画面から連携できます。",
     phone: "電話番号",
     phone_placeholder: "例：03-1234-5678",
     phone_hint: "任意 — 予約フォームに表示されます",
@@ -56,7 +50,6 @@ export default function OnboardingClient() {
   const c = copy[lang] ?? copy.en;
 
   const [clinicName, setClinicName] = useState("");
-  const [lineChannelId, setLineChannelId] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +91,6 @@ export default function OnboardingClient() {
         },
         body: JSON.stringify({
           name: clinicName.trim(),
-          line_channel_id: lineChannelId.trim() || null,
           phone: phone.trim() || null,
         }),
       });
@@ -203,22 +195,6 @@ export default function OnboardingClient() {
             />
           </div>
 
-          {/* LINE Channel ID */}
-          <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              {c.line_channel_id}
-            </label>
-            <input
-              type="text"
-              value={lineChannelId}
-              onChange={(e) => setLineChannelId(e.target.value)}
-              placeholder={c.line_channel_id_placeholder}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
-            />
-            <p className="mt-1.5 text-xs text-gray-400">{c.line_channel_id_hint}</p>
-            <p className="text-xs text-gray-400">{c.line_setup_later_hint}</p>
-          </div>
-
           {/* Phone */}
           <div className="mb-6">
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
@@ -233,6 +209,8 @@ export default function OnboardingClient() {
             />
             <p className="mt-1.5 text-xs text-gray-400">{c.phone_hint}</p>
           </div>
+
+          <p className="mb-4 -mt-2 text-xs text-gray-400">{c.line_setup_later_hint}</p>
 
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
