@@ -1,0 +1,17 @@
+-- Prevents two clinics from silently sharing one LINE Channel ID, which
+-- previously caused inbound LINE messages to route unpredictably to
+-- whichever clinic's row the database happened to return first (see
+-- routers/webhooks.py's _resolve_clinic_by_line_channel). The application
+-- layer now also rejects duplicates at onboard/settings-save time
+-- (routers/clinics.py's _ensure_line_channel_id_available) -- this
+-- constraint is the backstop for anything that doesn't go through that path.
+--
+-- NULL is unaffected -- a standard UNIQUE constraint allows any number of
+-- NULLs, so clinics that haven't set up LINE yet are unaffected.
+--
+-- IMPORTANT: if any two clinics currently share a non-null line_channel_id,
+-- this ALTER TABLE will fail. Find and resolve duplicates first:
+--   SELECT line_channel_id, array_agg(id) FROM clinics
+--   WHERE line_channel_id IS NOT NULL
+--   GROUP BY line_channel_id HAVING count(*) > 1;
+ALTER TABLE clinics ADD CONSTRAINT clinics_line_channel_id_unique UNIQUE (line_channel_id);

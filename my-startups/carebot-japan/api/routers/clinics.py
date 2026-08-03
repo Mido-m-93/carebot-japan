@@ -30,6 +30,26 @@ def slugify(name: str) -> str:
     return slug or "clinic"
 
 
+def _ensure_line_channel_id_available(db, channel_id: str, *, exclude_clinic_id: str | None = None) -> None:
+    """
+    Raise 409 if another clinic already has this LINE Channel ID.
+
+    Two clinics silently sharing one destination ID used to be possible --
+    inbound LINE webhooks would then route to whichever clinic's row the
+    database happened to return first (see routers/webhooks.py's
+    _resolve_clinic_by_line_channel), landing real patient messages/bookings
+    on the wrong clinic with no error or warning to either owner.
+    """
+    if not channel_id:
+        return
+    rows = db.table("clinics").select("id").eq("line_channel_id", channel_id).execute()
+    if any(row["id"] != exclude_clinic_id for row in (rows.data or [])):
+        raise HTTPException(
+            status_code=409,
+            detail="This LINE Channel ID is already connected to another clinic.",
+        )
+
+
 def unique_slug(db, base: str) -> str:
     """Return base slug if free, otherwise append -2, -3, etc."""
     candidate = base
@@ -116,12 +136,15 @@ def onboard_clinic(
         raise HTTPException(status_code=400, detail="Clinic name is required")
 
     db = get_db()
+    line_channel_id = (body.line_channel_id or "").strip() or None
+    _ensure_line_channel_id_available(db, line_channel_id)
+
     slug = unique_slug(db, slugify(name))
 
     clinic_row = {
         "name": name,
         "slug": slug,
-        "line_channel_id": (body.line_channel_id or "").strip() or None,
+        "line_channel_id": line_channel_id,
         "phone": (body.phone or "").strip() or None,
     }
     result = db.table("clinics").insert(clinic_row).execute()
@@ -207,6 +230,8 @@ def update_my_clinic(
     if clinic.get("role") != "owner":
         raise HTTPException(status_code=403, detail="Only the clinic owner can update clinic settings")
 
+    db = get_db()
+
     updates: dict = {}
     if body.name is not None:
         name = body.name.strip()
@@ -218,7 +243,9 @@ def update_my_clinic(
     if body.phone is not None:
         updates["phone"] = body.phone.strip() or None
     if body.line_channel_id is not None:
-        updates["line_channel_id"] = body.line_channel_id.strip() or None
+        new_channel_id = body.line_channel_id.strip() or None
+        _ensure_line_channel_id_available(db, new_channel_id, exclude_clinic_id=clinic_id)
+        updates["line_channel_id"] = new_channel_id
     # line_channel_secret / line_channel_access_token are masked on the
     # settings page (never sent back to the client -- see GET /clinics/me),
     # so only overwrite them when a real value is submitted. An empty string
@@ -233,7 +260,6 @@ def update_my_clinic(
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    db = get_db()
     db.table("clinics").update(updates).eq("id", clinic_id).execute()
 
     # Never echo the secret/access token back, even right after the caller
@@ -301,6 +327,8 @@ def create_location(
         raise HTTPException(status_code=403, detail="Only the clinic owner can add locations")
 
     db = get_db()
+    _ensure_line_channel_id_available(db, body.line_channel_id)
+
     slug = unique_slug(db, slugify(body.name))
 
     row = {
