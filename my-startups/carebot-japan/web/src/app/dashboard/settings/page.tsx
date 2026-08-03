@@ -114,7 +114,11 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [webhookCopied, setWebhookCopied] = useState(false);
-  const webhookUrl = `${API_URL}/webhooks/line`;
+  // API_URL ("/api-proxy") is a relative path meant only for this page's own
+  // browser fetches -- LINE's servers call this URL directly over the
+  // internet, so it needs the real absolute origin in front of it, same
+  // pattern as the booking-link widget on the dashboard overview page.
+  const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api-proxy/webhooks/line`;
 
   async function load() {
     try {
