@@ -13,6 +13,7 @@ const copy = {
     line_channel_id: "LINE Channel ID",
     line_channel_id_placeholder: "e.g. 1234567890",
     line_channel_id_hint: "Found in LINE Developers Console (optional)",
+    line_setup_later_hint: "You'll add your Channel secret & access token later, from Settings.",
     phone: "Phone number",
     phone_placeholder: "e.g. 03-1234-5678",
     phone_hint: "Optional — shown to patients on the booking form",
@@ -32,6 +33,7 @@ const copy = {
     line_channel_id: "LINE チャンネルID",
     line_channel_id_placeholder: "例：1234567890",
     line_channel_id_hint: "LINE Developers コンソールで確認できます（任意）",
+    line_setup_later_hint: "チャンネルシークレットとアクセストークンは、後で設定画面から追加できます。",
     phone: "電話番号",
     phone_placeholder: "例：03-1234-5678",
     phone_hint: "任意 — 予約フォームに表示されます",
@@ -214,6 +216,7 @@ export default function OnboardingClient() {
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
             />
             <p className="mt-1.5 text-xs text-gray-400">{c.line_channel_id_hint}</p>
+            <p className="text-xs text-gray-400">{c.line_setup_later_hint}</p>
           </div>
 
           {/* Phone */}
