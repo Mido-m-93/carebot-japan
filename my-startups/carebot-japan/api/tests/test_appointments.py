@@ -116,3 +116,39 @@ class TestGetAvailableSlotsExcludesPastTimes:
 
         by_time = {s["time"]: s["available"] for s in result["slots"]}
         assert by_time["09:00"] is True
+
+
+class TestListAppointmentsExcludesTestRows:
+    """
+    GET /appointments must exclude Test Message tool rows (is_test) by
+    default, since they'd otherwise pollute the real dashboard/stats, and
+    include them when include_test=true is passed (e.g. for cleanup).
+    """
+
+    def test_test_rows_excluded_by_default(self, appointments_client, seed_clinic, fake_db):
+        _clinic_id, token = seed_clinic(token="owner-token")
+        fake_db.rows["appointments"] = [
+            {"id": "real-1", "clinic_id": CLINIC_ID, "status": "confirmed", "is_test": False},
+            {"id": "test-1", "clinic_id": CLINIC_ID, "status": "confirmed", "is_test": True},
+        ]
+
+        res = appointments_client.get("/appointments", headers={"Authorization": f"Bearer {token}"})
+
+        assert res.status_code == 200
+        ids = [a["id"] for a in res.json()]
+        assert ids == ["real-1"]
+
+    def test_include_test_returns_everything(self, appointments_client, seed_clinic, fake_db):
+        _clinic_id, token = seed_clinic(token="owner-token")
+        fake_db.rows["appointments"] = [
+            {"id": "real-1", "clinic_id": CLINIC_ID, "status": "confirmed", "is_test": False},
+            {"id": "test-1", "clinic_id": CLINIC_ID, "status": "confirmed", "is_test": True},
+        ]
+
+        res = appointments_client.get(
+            "/appointments?include_test=true", headers={"Authorization": f"Bearer {token}"}
+        )
+
+        assert res.status_code == 200
+        ids = {a["id"] for a in res.json()}
+        assert ids == {"real-1", "test-1"}

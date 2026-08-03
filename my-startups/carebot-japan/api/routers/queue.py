@@ -18,19 +18,24 @@ def list_queue(
     authorization: Annotated[str | None, Header()] = None,
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     status: str = "pending",
+    include_test: bool = False,
 ):
-    """List review queue items for the caller's clinic."""
+    """
+    List review queue items for the caller's clinic. Excludes Test Message
+    tool rows (is_test) by default so they never inflate the real pending-
+    review count -- pass include_test=true to see them.
+    """
     clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
-    return (
+    query = (
         db.table("review_queue")
         .select("*")
         .eq("clinic_id", clinic_id)
         .eq("status", status)
-        .order("created_at", desc=True)
-        .execute()
-        .data
     )
+    if not include_test:
+        query = query.eq("is_test", False)
+    return query.order("created_at", desc=True).execute().data
 
 
 class ResolveRequest(BaseModel):
