@@ -17,6 +17,7 @@ const copy = {
     phone_placeholder: "e.g. 03-1234-5678",
     phone_hint: "Optional — shown to patients on the booking form",
     submit: "Continue to payment",
+    submit_free: "Get started",
     submitting: "Setting up...",
     error_required: "Clinic name is required.",
     error_api: "Something went wrong. Please try again.",
@@ -35,6 +36,7 @@ const copy = {
     phone_placeholder: "例：03-1234-5678",
     phone_hint: "任意 — 予約フォームに表示されます",
     submit: "お支払いへ進む",
+    submit_free: "無料で始める",
     submitting: "設定中...",
     error_required: "クリニック名は必須です。",
     error_api: "エラーが発生しました。もう一度お試しください。",
@@ -46,7 +48,8 @@ const copy = {
 export default function OnboardingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const plan = searchParams.get("plan") === "enterprise" ? "enterprise" : "pro";
+  const planParam = searchParams.get("plan");
+  const plan = planParam === "enterprise" ? "enterprise" : planParam === "pro" ? "pro" : "starter";
   const { lang, toggle } = useLanguage();
   const c = copy[lang] ?? copy.en;
 
@@ -103,6 +106,12 @@ export default function OnboardingClient() {
         throw new Error(body?.detail ?? body?.message ?? "API error");
       }
 
+      // Starter is free -- no Stripe checkout involved, straight to the dashboard.
+      if (plan === "starter") {
+        router.push("/dashboard");
+        return;
+      }
+
       // 2. Create Stripe Checkout session
       const res = await fetch("/api-proxy/billing/create-checkout-session", {
         method: "POST",
@@ -156,7 +165,11 @@ export default function OnboardingClient() {
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-base font-semibold text-gray-900">{c.title}</h1>
                 <span className="text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
-                  {plan === "enterprise" ? (lang === "ja" ? "エンタープライズ" : "Enterprise") : (lang === "ja" ? "プロ" : "Pro")}
+                  {plan === "enterprise"
+                    ? (lang === "ja" ? "エンタープライズ" : "Enterprise")
+                    : plan === "pro"
+                    ? (lang === "ja" ? "プロ" : "Pro")
+                    : (lang === "ja" ? "スターター" : "Starter")}
                 </span>
               </div>
               <p className="text-xs text-gray-400">{c.subtitle}</p>
@@ -229,7 +242,7 @@ export default function OnboardingClient() {
             disabled={loading}
             className="w-full py-2.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? c.submitting : c.submit}
+            {loading ? c.submitting : plan === "starter" ? c.submit_free : c.submit}
           </button>
         </form>
       </div>

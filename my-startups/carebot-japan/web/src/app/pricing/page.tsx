@@ -194,7 +194,7 @@ export default function PricingPage() {
             </ul>
 
             <Link
-              href="/signup"
+              href="/signup?plan=starter"
               className="block text-center py-2.5 border border-gray-200 text-sm font-medium text-gray-700 rounded-lg hover:border-teal-400 hover:text-teal-700 transition-colors"
             >
               {c.cta_starter}
