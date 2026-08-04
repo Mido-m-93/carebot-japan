@@ -233,6 +233,13 @@ export const translations = {
     activity_action_claim_created: "Claim created",
     activity_action_claim_submitted: "Claim submitted for AI review",
     activity_action_claim_status_updated: "Claim status updated",
+    activity_action_appointment_cancelled: "Appointment cancelled",
+    activity_action_appointment_rescheduled: "Appointment rescheduled",
+
+    // Notification bell
+    notif_bell_label: "Notifications",
+    notif_empty: "No new notifications",
+    notif_view_all: "View all activity",
 
     // Locations page (Enterprise)
     locations_title: "Locations",
@@ -499,6 +506,13 @@ export const translations = {
     activity_action_claim_created: "請求を作成しました",
     activity_action_claim_submitted: "請求をAI審査に提出しました",
     activity_action_claim_status_updated: "請求のステータスが更新されました",
+    activity_action_appointment_cancelled: "予約がキャンセルされました",
+    activity_action_appointment_rescheduled: "予約が変更されました",
+
+    // Notification bell
+    notif_bell_label: "通知",
+    notif_empty: "新しい通知はありません",
+    notif_view_all: "すべてのアクティビティを見る",
 
     // Locations page (Enterprise)
     locations_title: "拠点管理",

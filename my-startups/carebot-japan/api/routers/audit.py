@@ -18,16 +18,16 @@ def list_audit_log(
     authorization: Annotated[str | None, Header()] = None,
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     limit: int = Query(default=50, le=200),
+    actions: str | None = Query(default=None, description="Comma-separated action types, e.g. 'appointment_created,appointment_cancelled'"),
 ):
     """List recent activity for the caller's clinic, most recent first."""
     clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
-    return (
-        db.table("audit_logs")
-        .select("*")
-        .eq("clinic_id", clinic_id)
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-        .data
-    )
+    query = db.table("audit_logs").select("*").eq("clinic_id", clinic_id)
+
+    if actions:
+        action_list = [a.strip() for a in actions.split(",") if a.strip()]
+        if action_list:
+            query = query.in_("action", action_list)
+
+    return query.order("created_at", desc=True).limit(limit).execute().data

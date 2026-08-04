@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ClinicProvider, useClinicContext } from "@/contexts/ClinicContext";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function DashboardLayoutClient({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -134,9 +135,14 @@ function DashboardShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto bg-gray-50">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-14 shrink-0 border-b border-gray-200 bg-white flex items-center justify-end px-6">
+          <NotificationBell />
+        </header>
+        <main className="flex-1 overflow-auto bg-gray-50">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

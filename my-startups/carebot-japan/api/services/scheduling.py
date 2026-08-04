@@ -294,6 +294,9 @@ def _create_appointment(
     _log_audit(db, clinic_id, "appointment_created", record_id=appointment_id, metadata={
         "source": source,
         "confidence": extraction.get("confidence", 0.0),
+        "patient_name": extraction.get("patient_name"),
+        "scheduled_at": scheduled_at,
+        "is_test": _is_test_message.get(),
     })
 
     sms_phone = patient_phone or extraction.get("patient_phone")
@@ -495,6 +498,8 @@ def _handle_cancellation(db, clinic_id, source, line_user_id, raw_message, inten
         db.table("appointments").update({"status": "cancelled"}).eq("id", appt["id"]).execute()
         _log_audit(db, clinic_id, "appointment_cancelled", record_id=appt["id"], metadata={
             "source": source, "auto": True,
+            "patient_name": appt.get("patient_name"),
+            "scheduled_at": appt.get("scheduled_at"),
         })
         return {
             "status": "auto_cancelled",
@@ -624,6 +629,7 @@ def _apply_reschedule(db, clinic_id, source, line_user_id, appt, new_date, new_t
     _log_audit(db, clinic_id, "appointment_rescheduled", record_id=appt["id"], metadata={
         "source": source, "auto": True,
         "old_scheduled_at": old_scheduled_at, "new_scheduled_at": new_scheduled_at,
+        "patient_name": appt.get("patient_name"),
     })
     return {
         "status": "rescheduled",
