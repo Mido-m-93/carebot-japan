@@ -8,7 +8,7 @@ from services.email import send_appointment_confirmation
 from services.calendar import push_appointment_to_calendar
 from services.auth import resolve_clinic, require_own_clinic
 from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
-from routers.appointments import get_available_slots
+from routers.appointments import get_available_slots, _log_audit
 
 router = APIRouter()
 
@@ -130,6 +130,12 @@ def resolve_queue_item(
         result = db.table("appointments").insert(appt).execute()
         if result.data:
             appointment_id = result.data[0]["id"]
+            _log_audit(db, clinic_id_r, "appointment_created", record_id=appointment_id, metadata={
+                "source": "manual_review",
+                "patient_name": appt["patient_name"],
+                "scheduled_at": appt["scheduled_at"],
+                "is_test": False,
+            })
 
     # Send confirmation email if patient email is available
     email_id = None
