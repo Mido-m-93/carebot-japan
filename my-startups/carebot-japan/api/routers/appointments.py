@@ -14,6 +14,16 @@ from datetime import datetime, date, time, timedelta, timezone
 router = APIRouter()
 
 
+def _log_audit(db, clinic_id, action, record_id=None, metadata=None):
+    db.table("audit_logs").insert({
+        "clinic_id": clinic_id,
+        "action": action,
+        "actor": "appointments_service",
+        "record_id": str(record_id) if record_id else None,
+        "metadata": metadata or {},
+    }).execute()
+
+
 class BookingRequest(BaseModel):
     clinic_id: str
     patient_name: str
@@ -107,6 +117,14 @@ def book_appointment(request: Request, body: BookingRequest):
     }
     result = db.table("appointments").insert(appt).execute()
     appointment_id = result.data[0]["id"] if result.data else None
+
+    if appointment_id:
+        _log_audit(db, body.clinic_id, "appointment_created", record_id=appointment_id, metadata={
+            "source": "booking_form",
+            "patient_name": body.patient_name,
+            "scheduled_at": appt["scheduled_at"],
+            "is_test": False,
+        })
 
     # Send confirmation email immediately
     email_sent = False
@@ -227,8 +245,14 @@ def list_appointments(
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     from_date: str = Query(default=None, description="YYYY-MM-DD"),
     to_date: str = Query(default=None, description="YYYY-MM-DD"),
+    include_test: bool = Query(default=False, description="Include rows created by the Test Message tool"),
 ):
-    """List appointments for the caller's clinic, optionally filtered by date range."""
+    """
+    List appointments for the caller's clinic, optionally filtered by date
+    range. Excludes Test Message tool rows (is_test) by default so they
+    never pollute the real dashboard/stats -- pass include_test=true to see
+    them (e.g. for cleanup).
+    """
     clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
     query = (
@@ -237,6 +261,8 @@ def list_appointments(
         .eq("clinic_id", clinic_id)
         .order("created_at", desc=True)
     )
+    if not include_test:
+        query = query.eq("is_test", False)
     if from_date:
         query = query.gte("scheduled_at", f"{from_date}T00:00:00+09:00")
     if to_date:
@@ -255,8 +281,15 @@ def cancel_appointment(
     clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
 
-    existing = db.table("appointments").select("clinic_id").eq("id", appointment_id).limit(1).execute()
+    existing = db.table("appointments").select("clinic_id, patient_name, scheduled_at, is_test").eq("id", appointment_id).limit(1).execute()
     require_own_clinic(existing.data[0]["clinic_id"] if existing.data else None, clinic_id, "Appointment not found")
+    row = existing.data[0]
 
     db.table("appointments").update({"status": "cancelled"}).eq("id", appointment_id).execute()
+    _log_audit(db, clinic_id, "appointment_cancelled", record_id=appointment_id, metadata={
+        "source": "staff_dashboard",
+        "patient_name": row.get("patient_name"),
+        "scheduled_at": row.get("scheduled_at"),
+        "is_test": row.get("is_test", False),
+    })
     return {"status": "cancelled", "appointment_id": appointment_id}

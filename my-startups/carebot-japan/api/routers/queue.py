@@ -8,7 +8,7 @@ from services.email import send_appointment_confirmation
 from services.calendar import push_appointment_to_calendar
 from services.auth import resolve_clinic, require_own_clinic
 from services.quota import quota_exceeded, STARTER_MONTHLY_LIMIT
-from routers.appointments import get_available_slots
+from routers.appointments import get_available_slots, _log_audit
 
 router = APIRouter()
 
@@ -18,19 +18,24 @@ def list_queue(
     authorization: Annotated[str | None, Header()] = None,
     x_clinic_id: Annotated[str | None, Header(alias="X-Clinic-Id")] = None,
     status: str = "pending",
+    include_test: bool = False,
 ):
-    """List review queue items for the caller's clinic."""
+    """
+    List review queue items for the caller's clinic. Excludes Test Message
+    tool rows (is_test) by default so they never inflate the real pending-
+    review count -- pass include_test=true to see them.
+    """
     clinic_id, _clinic = resolve_clinic(authorization, x_clinic_id)
     db = get_db()
-    return (
+    query = (
         db.table("review_queue")
         .select("*")
         .eq("clinic_id", clinic_id)
         .eq("status", status)
-        .order("created_at", desc=True)
-        .execute()
-        .data
     )
+    if not include_test:
+        query = query.eq("is_test", False)
+    return query.order("created_at", desc=True).execute().data
 
 
 class ResolveRequest(BaseModel):
@@ -125,6 +130,12 @@ def resolve_queue_item(
         result = db.table("appointments").insert(appt).execute()
         if result.data:
             appointment_id = result.data[0]["id"]
+            _log_audit(db, clinic_id_r, "appointment_created", record_id=appointment_id, metadata={
+                "source": "manual_review",
+                "patient_name": appt["patient_name"],
+                "scheduled_at": appt["scheduled_at"],
+                "is_test": False,
+            })
 
     # Send confirmation email if patient email is available
     email_id = None

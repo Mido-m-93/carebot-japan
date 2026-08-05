@@ -17,6 +17,7 @@ from typing import Annotated
 from services.db import get_db
 from services.auth import resolve_clinic, _get_authenticated_user_id, _get_clinics_for_user
 from services.limiter import limiter
+from services.line import get_bot_user_id
 
 router = APIRouter()
 
@@ -28,6 +29,26 @@ def slugify(name: str) -> str:
     slug = re.sub(r"[\s_]+", "-", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
     return slug or "clinic"
+
+
+def _ensure_line_channel_id_available(db, channel_id: str, *, exclude_clinic_id: str | None = None) -> None:
+    """
+    Raise 409 if another clinic already has this LINE Channel ID.
+
+    Two clinics silently sharing one destination ID used to be possible --
+    inbound LINE webhooks would then route to whichever clinic's row the
+    database happened to return first (see routers/webhooks.py's
+    _resolve_clinic_by_line_channel), landing real patient messages/bookings
+    on the wrong clinic with no error or warning to either owner.
+    """
+    if not channel_id:
+        return
+    rows = db.table("clinics").select("id").eq("line_channel_id", channel_id).execute()
+    if any(row["id"] != exclude_clinic_id for row in (rows.data or [])):
+        raise HTTPException(
+            status_code=409,
+            detail="This LINE Channel ID is already connected to another clinic.",
+        )
 
 
 def unique_slug(db, base: str) -> str:
@@ -116,12 +137,15 @@ def onboard_clinic(
         raise HTTPException(status_code=400, detail="Clinic name is required")
 
     db = get_db()
+    line_channel_id = (body.line_channel_id or "").strip() or None
+    _ensure_line_channel_id_available(db, line_channel_id)
+
     slug = unique_slug(db, slugify(name))
 
     clinic_row = {
         "name": name,
         "slug": slug,
-        "line_channel_id": (body.line_channel_id or "").strip() or None,
+        "line_channel_id": line_channel_id,
         "phone": (body.phone or "").strip() or None,
     }
     result = db.table("clinics").insert(clinic_row).execute()
@@ -172,6 +196,11 @@ def get_my_clinic(
         "phone": clinic.get("phone"),
         "slug": clinic.get("slug"),
         "role": clinic.get("role"),
+        "line_channel_id": clinic.get("line_channel_id"),
+        # Never return the actual secret/access token to the client -- just
+        # whether both are set, so the settings page can show "configured"
+        # without ever re-exposing the values themselves.
+        "line_channel_configured": bool(clinic.get("line_channel_secret")) and bool(clinic.get("line_channel_access_token")),
     }
 
 
@@ -181,6 +210,9 @@ class UpdateClinicRequest(BaseModel):
     name: str | None = None
     name_jp: str | None = None
     phone: str | None = None
+    line_channel_id: str | None = None
+    line_channel_secret: str | None = None
+    line_channel_access_token: str | None = None
 
 
 @router.patch("/me")
@@ -199,6 +231,8 @@ def update_my_clinic(
     if clinic.get("role") != "owner":
         raise HTTPException(status_code=403, detail="Only the clinic owner can update clinic settings")
 
+    db = get_db()
+
     updates: dict = {}
     if body.name is not None:
         name = body.name.strip()
@@ -209,14 +243,51 @@ def update_my_clinic(
         updates["name_jp"] = body.name_jp.strip() or None
     if body.phone is not None:
         updates["phone"] = body.phone.strip() or None
+    if body.line_channel_id is not None:
+        new_channel_id = body.line_channel_id.strip() or None
+        _ensure_line_channel_id_available(db, new_channel_id, exclude_clinic_id=clinic_id)
+        updates["line_channel_id"] = new_channel_id
+    # line_channel_secret / line_channel_access_token are masked on the
+    # settings page (never sent back to the client -- see GET /clinics/me),
+    # so only overwrite them when a real value is submitted. An empty string
+    # means "left blank", not "clear it" -- otherwise re-saving the form
+    # without touching these fields would wipe an already-configured
+    # credential.
+    if body.line_channel_secret is not None and body.line_channel_secret.strip():
+        updates["line_channel_secret"] = body.line_channel_secret.strip()
+
+    line_channel_id_lookup_failed = False
+    if body.line_channel_access_token is not None and body.line_channel_access_token.strip():
+        token = body.line_channel_access_token.strip()
+        updates["line_channel_access_token"] = token
+
+        # Auto-detect the Bot User ID from LINE's own API instead of
+        # requiring the owner to find/paste it manually -- LINE's console
+        # never shows this value directly anywhere. Overrides any
+        # line_channel_id submitted in this same request, since the
+        # detected value is authoritative. The secret/token above still get
+        # saved even if this lookup fails; the frontend surfaces a
+        # "couldn't auto-detect" notice instead of blocking the save.
+        bot_user_id = get_bot_user_id(token)
+        if bot_user_id:
+            _ensure_line_channel_id_available(db, bot_user_id, exclude_clinic_id=clinic_id)
+            updates["line_channel_id"] = bot_user_id
+        else:
+            line_channel_id_lookup_failed = True
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    db = get_db()
     db.table("clinics").update(updates).eq("id", clinic_id).execute()
 
-    return {"clinic_id": clinic_id, **updates}
+    # Never echo the secret/access token back, even right after the caller
+    # themselves just set them -- same rule as GET /clinics/me.
+    response = {"clinic_id": clinic_id, **updates}
+    response.pop("line_channel_secret", None)
+    response.pop("line_channel_access_token", None)
+    if line_channel_id_lookup_failed:
+        response["line_channel_id_lookup_failed"] = True
+    return response
 
 
 # ── GET /clinics/locations ─────────────────────────────────────────────────────
@@ -276,6 +347,8 @@ def create_location(
         raise HTTPException(status_code=403, detail="Only the clinic owner can add locations")
 
     db = get_db()
+    _ensure_line_channel_id_available(db, body.line_channel_id)
+
     slug = unique_slug(db, slugify(body.name))
 
     row = {

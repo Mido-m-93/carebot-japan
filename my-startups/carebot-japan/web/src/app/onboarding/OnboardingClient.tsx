@@ -10,13 +10,12 @@ const copy = {
     subtitle: "Tell us about your clinic to get started",
     clinic_name: "Clinic name",
     clinic_name_placeholder: "e.g. Sakura Family Clinic",
-    line_channel_id: "LINE Channel ID",
-    line_channel_id_placeholder: "e.g. 1234567890",
-    line_channel_id_hint: "Found in LINE Developers Console (optional)",
+    line_setup_later_hint: "You can connect your clinic's LINE Official Account anytime from Settings after signup.",
     phone: "Phone number",
     phone_placeholder: "e.g. 03-1234-5678",
     phone_hint: "Optional — shown to patients on the booking form",
     submit: "Continue to payment",
+    submit_free: "Get started",
     submitting: "Setting up...",
     error_required: "Clinic name is required.",
     error_api: "Something went wrong. Please try again.",
@@ -28,13 +27,12 @@ const copy = {
     subtitle: "クリニックの情報を入力してください",
     clinic_name: "クリニック名",
     clinic_name_placeholder: "例：さくら家族クリニック",
-    line_channel_id: "LINE チャンネルID",
-    line_channel_id_placeholder: "例：1234567890",
-    line_channel_id_hint: "LINE Developers コンソールで確認できます（任意）",
+    line_setup_later_hint: "貴院のLINE公式アカウントは、サインアップ後いつでも設定画面から連携できます。",
     phone: "電話番号",
     phone_placeholder: "例：03-1234-5678",
     phone_hint: "任意 — 予約フォームに表示されます",
     submit: "お支払いへ進む",
+    submit_free: "無料で始める",
     submitting: "設定中...",
     error_required: "クリニック名は必須です。",
     error_api: "エラーが発生しました。もう一度お試しください。",
@@ -46,12 +44,12 @@ const copy = {
 export default function OnboardingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const plan = searchParams.get("plan") === "enterprise" ? "enterprise" : "pro";
+  const planParam = searchParams.get("plan");
+  const plan = planParam === "enterprise" ? "enterprise" : planParam === "pro" ? "pro" : "starter";
   const { lang, toggle } = useLanguage();
   const c = copy[lang] ?? copy.en;
 
   const [clinicName, setClinicName] = useState("");
-  const [lineChannelId, setLineChannelId] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +91,6 @@ export default function OnboardingClient() {
         },
         body: JSON.stringify({
           name: clinicName.trim(),
-          line_channel_id: lineChannelId.trim() || null,
           phone: phone.trim() || null,
         }),
       });
@@ -101,6 +98,12 @@ export default function OnboardingClient() {
       if (!onboardRes.ok) {
         const body = await onboardRes.json().catch(() => ({}));
         throw new Error(body?.detail ?? body?.message ?? "API error");
+      }
+
+      // Starter is free -- no Stripe checkout involved, straight to the dashboard.
+      if (plan === "starter") {
+        router.push("/dashboard");
+        return;
       }
 
       // 2. Create Stripe Checkout session
@@ -156,7 +159,11 @@ export default function OnboardingClient() {
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-base font-semibold text-gray-900">{c.title}</h1>
                 <span className="text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
-                  {plan === "enterprise" ? (lang === "ja" ? "エンタープライズ" : "Enterprise") : (lang === "ja" ? "プロ" : "Pro")}
+                  {plan === "enterprise"
+                    ? (lang === "ja" ? "エンタープライズ" : "Enterprise")
+                    : plan === "pro"
+                    ? (lang === "ja" ? "プロ" : "Pro")
+                    : (lang === "ja" ? "スターター" : "Starter")}
                 </span>
               </div>
               <p className="text-xs text-gray-400">{c.subtitle}</p>
@@ -188,21 +195,6 @@ export default function OnboardingClient() {
             />
           </div>
 
-          {/* LINE Channel ID */}
-          <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              {c.line_channel_id}
-            </label>
-            <input
-              type="text"
-              value={lineChannelId}
-              onChange={(e) => setLineChannelId(e.target.value)}
-              placeholder={c.line_channel_id_placeholder}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
-            />
-            <p className="mt-1.5 text-xs text-gray-400">{c.line_channel_id_hint}</p>
-          </div>
-
           {/* Phone */}
           <div className="mb-6">
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
@@ -218,6 +210,8 @@ export default function OnboardingClient() {
             <p className="mt-1.5 text-xs text-gray-400">{c.phone_hint}</p>
           </div>
 
+          <p className="mb-4 -mt-2 text-xs text-gray-400">{c.line_setup_later_hint}</p>
+
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
               <p className="text-xs text-red-600">{error}</p>
@@ -229,7 +223,7 @@ export default function OnboardingClient() {
             disabled={loading}
             className="w-full py-2.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? c.submitting : c.submit}
+            {loading ? c.submitting : plan === "starter" ? c.submit_free : c.submit}
           </button>
         </form>
       </div>

@@ -15,7 +15,8 @@ import hmac
 import os
 import base64
 import re
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from typing import Annotated
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Header
 from pydantic import BaseModel
 from services.db import get_db
 from services.scheduling import process_message
@@ -23,22 +24,33 @@ from services.email import send_appointment_confirmation, send_plain_email
 from services.line import send_line_reply
 from services.ai import generate_confirmation
 from services.limiter import limiter
+from services.auth import _get_authenticated_user_id, _get_clinics_for_user
 
 router = APIRouter()
 
 
-def _resolve_clinic_by_line_channel(channel_id: str) -> str | None:
+def _resolve_clinic_by_line_channel(channel_id: str) -> dict | None:
     """
     Look up the clinic whose `line_channel_id` matches the LINE bot channel
     that received this webhook (LINE's `destination` field). Returns None if
     no clinic is registered for it -- callers must NOT fall back to a default
     clinic in that case.
+
+    Returns the clinic's id plus its own LINE credentials (if configured),
+    so signature verification and replies use that clinic's channel instead
+    of the global env vars -- see _verify_line_signature / send_line_reply.
     """
     if not channel_id:
         return None
     db = get_db()
-    rows = db.table("clinics").select("id").eq("line_channel_id", channel_id).limit(1).execute()
-    return rows.data[0]["id"] if rows.data else None
+    rows = (
+        db.table("clinics")
+        .select("id, line_channel_secret, line_channel_access_token")
+        .eq("line_channel_id", channel_id)
+        .limit(1)
+        .execute()
+    )
+    return rows.data[0] if rows.data else None
 
 
 def _resolve_clinic_by_inbound_email(address: str) -> str | None:
@@ -56,9 +68,16 @@ def _resolve_clinic_by_inbound_email(address: str) -> str | None:
 
 # ── Line webhook ──────────────────────────────────────────────
 
-def _verify_line_signature(body: bytes, signature: str) -> bool:
-    """Verify Line webhook signature to prevent spoofing."""
-    secret = os.getenv("LINE_CHANNEL_SECRET", "")
+def _verify_line_signature(body: bytes, signature: str, secret: str | None = None) -> bool:
+    """
+    Verify Line webhook signature to prevent spoofing.
+
+    `secret` should be the clinic's own line_channel_secret when its
+    destination channel is known. Falls back to the global
+    LINE_CHANNEL_SECRET env var when the clinic hasn't configured its own --
+    keeps the original single-tenant clinic working unchanged.
+    """
+    secret = secret or os.getenv("LINE_CHANNEL_SECRET", "")
     if not secret:
         # Fail closed: an unconfigured secret must never be treated as "verification passed".
         return False
@@ -295,7 +314,7 @@ def _compose_reply_text(result: dict, clinic_name: str) -> str:
     return reply
 
 
-def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
+def _process_line_and_reply(clinic_id: str, text: str, user_id: str, access_token: str | None = None):
     """Run the scheduling pipeline, then push a reply back to the patient in LINE."""
     result = process_message(
         clinic_id=clinic_id,
@@ -308,7 +327,7 @@ def _process_line_and_reply(clinic_id: str, text: str, user_id: str):
 
     clinic_name = _resolve_clinic_name(clinic_id, result.get("lang", "ja"))
     reply = _compose_reply_text(result, clinic_name)
-    send_line_reply(user_id, reply)
+    send_line_reply(user_id, reply, access_token=access_token)
 
 
 @router.post("/line")
@@ -320,9 +339,6 @@ async def line_webhook(request: Request, background_tasks: BackgroundTasks):
     body = await request.body()
     signature = request.headers.get("X-Line-Signature", "")
 
-    if not _verify_line_signature(body, signature):
-        raise HTTPException(status_code=403, detail="Invalid signature")
-
     import json
     try:
         payload = json.loads(body)
@@ -331,16 +347,26 @@ async def line_webhook(request: Request, background_tasks: BackgroundTasks):
 
     # All events in a single Line webhook call originate from the same bot
     # channel, identified by `destination` (the bot's own channel/user ID).
-    # Resolve the clinic once for the whole payload.
+    # Resolve the clinic (and its own LINE credentials, if configured)
+    # before verifying the signature, so a clinic with its own channel is
+    # verified against its own secret rather than the global env var.
     destination = payload.get("destination", "")
-    clinic_id = _resolve_clinic_by_line_channel(destination)
-    if not clinic_id:
+    clinic = _resolve_clinic_by_line_channel(destination)
+
+    clinic_secret = clinic.get("line_channel_secret") if clinic else None
+    if not _verify_line_signature(body, signature, secret=clinic_secret):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    if not clinic:
         event_count = len(payload.get("events", []))
         print(
             f"[webhooks] No clinic registered for Line channel destination={destination!r} "
             f"— skipping {event_count} event(s) instead of misattributing them"
         )
         return {"status": "ok"}
+
+    clinic_id = clinic["id"]
+    access_token = clinic.get("line_channel_access_token")
 
     for event in payload.get("events", []):
         if event.get("type") != "message":
@@ -352,7 +378,7 @@ async def line_webhook(request: Request, background_tasks: BackgroundTasks):
         user_id = event.get("source", {}).get("userId", "")
 
         # Process in background so we return 200 immediately to Line
-        background_tasks.add_task(_process_line_and_reply, clinic_id, text, user_id)
+        background_tasks.add_task(_process_line_and_reply, clinic_id, text, user_id, access_token)
 
     return {"status": "ok"}
 
@@ -363,11 +389,16 @@ class WebBookingRequest(BaseModel):
     clinic_id: str
     message: str
     patient_phone: str | None = None
+    is_test: bool = False
 
 
 @router.post("/web")
 @limiter.limit("10/minute")
-async def web_booking(request: Request, payload: WebBookingRequest):
+async def web_booking(
+    request: Request,
+    payload: WebBookingRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
     """
     Direct booking from the clinic's web widget or the dashboard test form.
     Processes synchronously and returns the result immediately.
@@ -375,12 +406,26 @@ async def web_booking(request: Request, payload: WebBookingRequest):
     Unauthenticated and public, and every call triggers paid LLM calls
     (see services/ai.py), so it's rate limited per-IP to keep a scripted
     flood from running up the AI bill.
+
+    is_test is only honored when the caller is an authenticated member of
+    the target clinic (the dashboard's Test Message tool always sends its
+    session token) -- otherwise an anonymous caller could claim is_test=True
+    to hide real bookings from the clinic's own stats.
     """
+    is_test = False
+    if payload.is_test and authorization:
+        try:
+            user_id = _get_authenticated_user_id(authorization)
+            is_test = any(c["id"] == payload.clinic_id for c in _get_clinics_for_user(user_id))
+        except HTTPException:
+            is_test = False
+
     result = process_message(
         clinic_id=payload.clinic_id,
         raw_message=payload.message,
         source="web",
         patient_phone=payload.patient_phone,
+        is_test=is_test,
     )
     return result
 

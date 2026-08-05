@@ -3,26 +3,7 @@ import { useEffect, useState } from "react";
 import { API_URL, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useClinicContext } from "@/contexts/ClinicContext";
-
-interface AuditLogEntry {
-  id: string;
-  action: string;
-  actor: string;
-  record_type: string | null;
-  record_id: string | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
-}
-
-const ACTION_ICONS: Record<string, string> = {
-  claude_extraction_run: "🤖",
-  appointment_created: "📅",
-  sms_sent: "💬",
-  review_item_created: "🔍",
-  claim_created: "📄",
-  claim_submitted: "📤",
-  claim_status_updated: "✅",
-};
+import { type AuditLogEntry, ACTION_ICONS } from "@/lib/auditLog";
 
 export default function ActivityPage() {
   const { t, lang } = useLanguage();

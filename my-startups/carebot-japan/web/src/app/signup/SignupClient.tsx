@@ -8,7 +8,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 export default function SignupClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const plan = searchParams.get("plan") === "enterprise" ? "enterprise" : "pro";
+  const planParam = searchParams.get("plan");
+  const plan = planParam === "enterprise" ? "enterprise" : planParam === "pro" ? "pro" : "starter";
   const { lang, toggle, t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ClinicProvider, useClinicContext } from "@/contexts/ClinicContext";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function DashboardLayoutClient({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -34,7 +35,11 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { lang, toggle, t } = useLanguage();
   const { locations, activeClinicId, setActiveClinicId, loading: clinicLoading } = useClinicContext();
-  const bookingSlug = locations.find((loc) => loc.clinic_id === activeClinicId)?.slug ?? null;
+  const activeClinic = locations.find((loc) => loc.clinic_id === activeClinicId);
+  const bookingSlug = activeClinic?.slug ?? null;
+  const brandName = activeClinic
+    ? (lang === "ja" ? activeClinic.name_jp || activeClinic.name : activeClinic.name)
+    : "CareBot Japan";
 
   const navItems = [
     { href: "/dashboard", label: t.nav_overview },
@@ -63,7 +68,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className="w-56 bg-teal-800 text-teal-50 flex flex-col shrink-0">
         <div className="px-5 py-5 border-b border-teal-600">
-          <p className="font-semibold text-sm tracking-wide">CareBot Japan</p>
+          <p className="font-semibold text-sm tracking-wide">{brandName}</p>
           {locations.length > 1 ? (
             <select
               value={activeClinicId ?? ""}
@@ -111,31 +116,33 @@ function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           )}
         </nav>
-        <div className="px-5 py-4 border-t border-teal-600 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-teal-400">MVP v0.1</p>
-            {/* Language toggle */}
-            <button
-              onClick={toggle}
-              className="text-xs font-semibold text-teal-200 hover:text-white border border-teal-600 hover:border-teal-400 rounded px-1.5 py-0.5 transition-colors"
-              title={lang === "en" ? "日本語に切替" : "Switch to English"}
-            >
-              {lang === "en" ? "日本語" : "EN"}
-            </button>
-          </div>
+        <div className="px-5 py-4 border-t border-teal-600 flex items-center justify-between">
           <button
             onClick={handleLogout}
-            className="w-full text-left text-xs text-teal-300 hover:text-white transition-colors py-1"
+            className="text-xs text-teal-300 hover:text-white transition-colors"
           >
             {t.nav_signout}
+          </button>
+          {/* Language toggle */}
+          <button
+            onClick={toggle}
+            className="text-xs font-semibold text-teal-200 hover:text-white border border-teal-600 hover:border-teal-400 rounded px-1.5 py-0.5 transition-colors"
+            title={lang === "en" ? "日本語に切替" : "Switch to English"}
+          >
+            {lang === "en" ? "日本語" : "EN"}
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto bg-gray-50">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-14 shrink-0 border-b border-gray-200 bg-white flex items-center justify-end px-6">
+          <NotificationBell />
+        </header>
+        <main className="flex-1 overflow-auto bg-gray-50">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
