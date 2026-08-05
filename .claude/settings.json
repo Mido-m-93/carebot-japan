@@ -1,10 +1,21 @@
 {
-  "extraKnownMarketplaces": {
-    "robo-coop-tools": {
-      "source": { "source": "github", "repo": "Robo-Co-op/robobuilder" }
-    }
+  "permissions": {
+    "allow": [
+      "Bash(npx vercel *)",
+      "Bash(grep -rn '\\\\$49\\\\|\\\\$99' src/)",
+      "Bash(npx next *)",
+      "Bash(curl -s -o /dev/null -w \"billing/subscription \\(no auth, expect 401\\): %{http_code}\\\\n\" https://carebot-japan-production.up.railway.app/billing/subscription)"
+    ]
   },
   "enabledPlugins": {
     "robobuilder@robo-coop-tools": true
+  },
+  "extraKnownMarketplaces": {
+    "robo-coop-tools": {
+      "source": {
+        "source": "github",
+        "repo": "Robo-Co-op/robobuilder"
+      }
+    }
   }
 }
