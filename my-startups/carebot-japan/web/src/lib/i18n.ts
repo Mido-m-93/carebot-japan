@@ -37,6 +37,7 @@ export const translations = {
     signup_success_body: "We've sent a confirmation link to your inbox. Click it to activate your account.",
     signup_error_mismatch: "Passwords do not match.",
     signup_error_weak: "Password must be at least 8 characters.",
+    signup_error_already_exists: "An account with this email already exists. Please sign in instead.",
     signup_signin_link: "Already have an account?",
     signup_signin_cta: "Sign in",
 
@@ -310,6 +311,7 @@ export const translations = {
     signup_success_body: "確認リンクを送信しました。メールを開いてアカウントを有効化してください。",
     signup_error_mismatch: "パスワードが一致しません。",
     signup_error_weak: "パスワードは8文字以上にしてください。",
+    signup_error_already_exists: "このメールアドレスのアカウントは既に存在します。ログインしてください。",
     signup_signin_link: "すでにアカウントをお持ちの方は",
     signup_signin_cta: "ログイン",
 

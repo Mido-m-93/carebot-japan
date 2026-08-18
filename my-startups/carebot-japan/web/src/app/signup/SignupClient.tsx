@@ -31,10 +31,20 @@ export default function SignupClient() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
       setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Supabase deliberately returns a success-shaped response for an
+    // already-registered, already-confirmed email (anti-enumeration) --
+    // it never errors. The one observable tell is an empty identities
+    // array: a genuinely new signup always has exactly one identity.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      setError(t.signup_error_already_exists);
       setLoading(false);
       return;
     }
