@@ -10,6 +10,20 @@ idempotency key on customer creation, and the webhook signature gate.
 from unittest.mock import MagicMock, patch
 
 import stripe
+from stripe._stripe_object import StripeObject
+
+
+def _real_event(event_type: str, data_object: dict) -> StripeObject:
+    """
+    Build an event shaped like what stripe.Webhook.construct_event() actually
+    returns -- a StripeObject tree, not a plain dict. The other webhook tests
+    pass a plain dict for `event`, which masks bugs where handler code calls
+    .get() on event["data"]["object"]: StripeObject has no .get() method, so
+    that only blows up against a real delivery, never against the mocked dict.
+    """
+    return StripeObject.construct_from(
+        {"type": event_type, "data": {"object": data_object}}, "sk_test_fake"
+    )
 
 
 # ── POST /billing/create-checkout-session ─────────────────────────────────────
@@ -316,6 +330,39 @@ class TestStripeWebhook:
         assert clinic["subscription_status"] == "active"
         assert clinic["stripe_customer_id"] == "cus_123"
         assert clinic["stripe_subscription_id"] == "sub_123"
+
+    def test_checkout_completed_upgrades_clinic_with_real_stripe_object(
+        self, client, fake_db, billing_app
+    ):
+        """
+        Same as test_checkout_completed_upgrades_clinic, but with `event`
+        shaped like a real Stripe webhook delivery (StripeObject, not a plain
+        dict) -- catches handlers that call .get() on the event payload,
+        which AttributeErrors against a real StripeObject but silently works
+        against a mocked dict.
+        """
+        _app, billing = billing_app
+        fake_db.rows["clinics"] = [
+            {"id": "clinic-1", "tier": "starter", "subscription_status": "inactive",
+             "stripe_customer_id": None, "stripe_subscription_id": None},
+        ]
+        event = _real_event("checkout.session.completed", {
+            "customer": "cus_123",
+            "subscription": "sub_123",
+            "metadata": {"clinic_id": "clinic-1", "plan": "enterprise"},
+        })
+        with patch.object(billing, "_WEBHOOK_SECRET", "whsec_test"), \
+             patch.object(billing.stripe.Webhook, "construct_event", return_value=event):
+            res = client.post(
+                "/billing/webhook",
+                content=b"{}",
+                headers={"stripe-signature": "valid"},
+            )
+
+        assert res.status_code == 200
+        clinic = fake_db.rows["clinics"][0]
+        assert clinic["tier"] == "enterprise"
+        assert clinic["subscription_status"] == "active"
 
     def test_subscription_deleted_downgrades_to_starter(self, client, fake_db, billing_app):
         _app, billing = billing_app

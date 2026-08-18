@@ -182,8 +182,13 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail=f"Webhook parse error: {exc}")
 
     # ── 3. Dispatch on event type ─────────────────────────────────────────────
+    # A real delivery hands us a StripeObject, not a plain dict, and it has no
+    # .get() method (unlike dict) -- the handlers below use .get() throughout,
+    # so without .to_dict() here every real webhook 500s, even though that's
+    # invisible in tests that mock construct_event's return as a plain dict.
     event_type = event["type"]
-    data_obj   = event["data"]["object"]
+    raw_data_obj = event["data"]["object"]
+    data_obj = raw_data_obj.to_dict() if hasattr(raw_data_obj, "to_dict") else raw_data_obj
 
     db = get_db()
 
