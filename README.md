@@ -7,8 +7,9 @@ AI-powered appointment scheduling for Japanese clinics via LINE and web. Live in
 **Code lives at:** `my-startups/carebot-japan/` (`api/` = FastAPI backend, `web/` = Next.js frontend) — not at the repo root, and not under `apps/`. This repo also contains `apps/startup-robos`, the AI CxO framework that originally managed CareBot Japan alongside JapanUnlocked and Kanso Templates; those two were shut down (not a good niche fit) and the framework now focuses on CareBot Japan; see `apps/startup-robos/CLAUDE.md` for how that's wired.
 
 **Deployed at:**
-- Frontend (Vercel): https://carebot-japan-web.vercel.app
+- Frontend (Vercel): https://carebot-japan.robo-lab.io (custom domain; `carebot-japan-web.vercel.app` and per-deploy hash URLs still resolve but aren't the canonical link)
 - Backend API (Railway): https://carebot-japan-production.up.railway.app
+<!-- last-synced: 2026-08-18 by blueprint-sync -->
 
 ---
 
@@ -47,15 +48,24 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 GROQ_API_KEY=gsk_...
 STRIPE_SECRET_KEY=sk_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_ID=price_...          # Pro plan, $49/month
+STRIPE_PRICE_ID=price_...            # Pro plan, ¥7,500/month (JPY is zero-decimal — no /100)
+STRIPE_ENTERPRISE_PRICE_ID=price_... # Enterprise plan, ¥15,000/month
 LINE_CHANNEL_SECRET=...
 LINE_CHANNEL_ACCESS_TOKEN=...
 RESEND_API_KEY=re_...
+EMAIL_FROM=noreply@mail.robo-lab.io  # must be on a domain verified in Resend — their sandbox
+                                      # domain (onboarding@resend.dev) only sends to the
+                                      # account owner's own address, not real patients
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 In production these are set directly in Vercel/Railway, not from a local file.
+<!-- last-synced: 2026-08-18 by blueprint-sync -->
+
+Supabase Auth also needs Custom SMTP configured (Authentication → Settings → SMTP Settings) pointed at
+the same Resend domain — its default email service has a very low send-rate limit that will surface as
+"email rate limit exceeded" on signup/password-reset otherwise.
 
 ## 3. Database
 
@@ -111,9 +121,10 @@ web/src/app/
 
 ## What's real vs. simulated
 
-- ✅ Auth, billing (Stripe checkout/webhook/portal), LINE + web booking intake, AI claims review, human review queue — all real and live.
+- ✅ Auth, billing (Stripe checkout/webhook/portal for **both Pro and Enterprise**), LINE + web booking intake, AI claims review, human review queue, patient email notifications (Resend) — all real and live.
+- ✅ **Pricing:** Starter (free, 50 appointments/month) / Pro (¥7,500/month) / Enterprise (¥15,000/month) — all three are real, selectable plans in the dashboard (`web/src/app/dashboard/billing/page.tsx`), not just DB values. Prices are read live from Stripe via `GET /billing/plans`, not hardcoded — check there, not this doc, if pricing seems off.
 - ⚠️ **Google Calendar sync is fully simulated** (`api/services/calendar.py`) — no OAuth wiring exists, so appointments are never actually pushed to a real calendar. The API correctly reports `calendar_synced: false`.
-- ⚠️ **Enterprise tier** is an allowed DB value (`clinics.tier`) but isn't offered anywhere in the UI — only Starter/Pro exist as real plans. Don't build against it without a pricing decision first.
+<!-- last-synced: 2026-08-18 by blueprint-sync -->
 
 ## Next steps
 

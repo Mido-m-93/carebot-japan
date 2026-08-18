@@ -7,12 +7,13 @@ This doc exists so a 3am fix doesn't depend on remembering how everything's wire
 
 | Layer | Where | Notes |
 |---|---|---|
-| Frontend | Vercel — https://carebot-japan-web.vercel.app | Next.js. Auto-deploys on push to `main`. |
-| Backend API | Railway — https://carebot-japan-production.up.railway.app | FastAPI. Auto-deploys on push to `main`. No staging environment. |
-| Database + Auth | Supabase | Postgres + Supabase Auth. RLS enabled on all tables. |
-| Payments | Stripe (live mode) | Checkout, billing portal, webhook at `/billing/webhook`. |
-| Patient channels | LINE (primary), web booking form, email (Mailgun, not yet wired to real addresses) | |
+| Frontend | Vercel — https://carebot-japan.robo-lab.io | Next.js. Auto-deploys on push to `main`. Custom domain on Hostinger DNS (nameservers `ns1/ns2.dns-parking.com`); `carebot-japan-web.vercel.app` still resolves but isn't canonical. |
+| Backend API | Railway — https://carebot-japan-production.up.railway.app | FastAPI. Auto-deploys on push to `main`. No staging environment (a `sandbox` Railway environment can be spun up ad hoc for testing, e.g. via `railway environment new sandbox --duplicate production`, then torn down). |
+| Database + Auth | Supabase | Postgres + Supabase Auth. RLS enabled on all tables. Auth uses Custom SMTP (Resend) — see below. |
+| Payments | Stripe — **`STRIPE_SECRET_KEY` in Railway production is `rk_live_...`, live mode.** Checkout, billing portal, webhook at `/billing/webhook`. A separate Stripe Sandbox exists for test-mode work — grab a fresh `sk_test_...` key + test Price IDs from there, never test against the live key. |
+| Patient channels | LINE (primary), web booking form, email (Resend, real domain `mail.robo-lab.io`, fully wired to real patient addresses as of 2026-08-18) | |
 | AI | Groq (intent classification, extraction), Anthropic (claims review) | |
+<!-- last-synced: 2026-08-18 by blueprint-sync -->
 
 Repos: code lives in this monorepo under `my-startups/carebot-japan/`. Pushed to
 `personal` remote (`github.com/Mido-m-93/carebot-japan`) — PRs and CI run there,
@@ -49,6 +50,22 @@ not against the `origin` org remote.
   "No clinic found for this user" (404), check whether they have a row in `clinic_users` at all —
   this table being unexpectedly empty for a real signed-up user is the #1 thing that has broken
   onboarding before.
+- **A real Stripe webhook delivery is a `StripeObject`, not a plain dict — `.get()` doesn't exist
+  on it.** Unit tests that mock `stripe.Webhook.construct_event()`'s return as a plain dict will
+  never catch this; it only shows up against a real delivery. `billing.py`'s webhook handler now
+  calls `.to_dict()` on `event["data"]["object"]` before touching it — don't remove that.
+- **Resend's sandbox domain (`onboarding@resend.dev`) can only send to the account owner's own
+  email.** This silently broke every patient confirmation email until `mail.robo-lab.io` was
+  verified (2026-08-18). If patient emails go quiet again, check `EMAIL_FROM` is still on the
+  verified domain, not the sandbox one.
+- **Supabase's default email service has a very low send-rate limit** — a burst of
+  signups/password-resets will hit "email rate limit exceeded." Custom SMTP (Authentication →
+  Settings → SMTP Settings, routed through the same Resend domain) fixes this; if it's ever
+  disabled or misconfigured, this comes back.
+- **`supabase.auth.signUp()` needs an explicit `emailRedirectTo`, or the confirmation link falls
+  back to Supabase's Site URL config and skips `/auth/callback` entirely** — the code is never
+  exchanged for a session, and the user lands on a dead page. Same applies to any new Supabase
+  Auth email flow added later; copy the pattern from `LoginClient.tsx`'s password-reset call.
 
 ## Rollback
 
@@ -69,6 +86,14 @@ not against the `origin` org remote.
   Variables.
 - Stripe dashboard: make sure you're in the **live "CareBot Japan"** account, not the
   "CareBot Japan sandbox" — they're separate environments with separate keys/data.
+- Resend dashboard (`roboco-op` team): domain `mail.robo-lab.io`, region Tokyo (ap-northeast-1).
+  Used both for the app's own patient emails (`api/services/email.py`) and Supabase Auth's
+  Custom SMTP.
+- DNS for `robo-lab.io`: Hostinger's DNS zone editor (Domains → robo-lab.io → DNS Records). The
+  root domain also carries unrelated Microsoft 365 MX/SPF records — don't touch those; anything
+  new (like Resend's DKIM/SPF/MX) goes on a dedicated subdomain (`mail.robo-lab.io` / its
+  `send.mail` sub-subdomain) so it can't conflict.
+<!-- last-synced: 2026-08-18 by blueprint-sync -->
 
 ## Escalation
 
