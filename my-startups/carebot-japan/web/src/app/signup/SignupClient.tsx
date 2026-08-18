@@ -31,7 +31,17 @@ export default function SignupClient() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // Without this, the confirmation link falls back to Supabase's Site
+        // URL config and skips /auth/callback entirely, so the code never
+        // gets exchanged for a session -- same pattern as the password
+        // reset flow in LoginClient.tsx.
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/onboarding?plan=${plan}`)}`,
+      },
+    });
 
     if (error) {
       setError(error.message);
