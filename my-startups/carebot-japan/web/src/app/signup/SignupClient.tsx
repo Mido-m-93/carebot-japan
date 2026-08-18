@@ -16,10 +16,12 @@ export default function SignupClient() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setConfirmationRequired(false);
 
     if (password.length < 8) {
       setError(t.signup_error_weak);
@@ -62,8 +64,10 @@ export default function SignupClient() {
     // Sign in immediately after signup (works whether email confirmation is on or off)
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) {
-      // Signup worked but confirmation is required — tell the user clearly
-      setError("Account created! Please check your email to confirm before signing in.");
+      // Signup worked but confirmation is required — this is success, not
+      // an error, so it gets its own state/styling instead of the red
+      // error box (and a translated message instead of hardcoded English).
+      setConfirmationRequired(true);
       setLoading(false);
     } else {
       router.refresh();
@@ -144,6 +148,13 @@ export default function SignupClient() {
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
             />
           </div>
+
+          {confirmationRequired && (
+            <div className="mb-4 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
+              <p className="text-xs font-medium text-teal-800">{t.signup_success_title}</p>
+              <p className="text-xs text-teal-700 mt-0.5">{t.signup_success_body}</p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
