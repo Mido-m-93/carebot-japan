@@ -213,27 +213,28 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 shadow-sm" />
-            <span className="font-semibold text-teal-800">CareBot Japan</span>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 shadow-sm shrink-0" />
+            <span className="font-semibold text-teal-800 whitespace-nowrap text-sm sm:text-base">CareBot Japan</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button
               onClick={toggle}
-              className="text-xs text-gray-500 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:border-teal-400 hover:text-teal-700 transition-colors"
+              className="text-xs text-gray-500 border border-gray-200 px-2 py-1.5 sm:px-2.5 rounded-lg hover:border-teal-400 hover:text-teal-700 transition-colors whitespace-nowrap"
             >
-              {lang === "en" ? "🇯🇵 日本語" : "🇬🇧 English"}
+              <span className="sm:hidden">{lang === "en" ? "🇯🇵" : "🇬🇧"}</span>
+              <span className="hidden sm:inline">{lang === "en" ? "🇯🇵 日本語" : "🇬🇧 English"}</span>
             </button>
             <Link
               href="/login"
-              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              className="hidden sm:inline text-sm text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap"
             >
               {c.nav_signin}
             </Link>
             <Link
               href="/signup"
-              className="text-sm bg-teal-700 text-white px-4 py-1.5 rounded-lg hover:bg-teal-800 transition-colors font-medium"
+              className="text-xs sm:text-sm bg-teal-700 text-white px-3 sm:px-4 py-1.5 rounded-lg hover:bg-teal-800 transition-colors font-medium whitespace-nowrap"
             >
               {c.nav_start}
             </Link>
