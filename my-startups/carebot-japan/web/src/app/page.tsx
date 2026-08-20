@@ -288,7 +288,7 @@ export default function LandingPage() {
             <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse-soft" />
             <span className="ml-2 text-xs text-gray-400">CareBot Japan Dashboard</span>
           </div>
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {[
               { label: lang === "ja" ? "本日の予約" : "Today", value: "8" },
               { label: lang === "ja" ? "今週" : "This week", value: "34" },
@@ -300,7 +300,7 @@ export default function LandingPage() {
                 className="bg-white rounded-xl border border-gray-100 p-3 transition-transform hover:-translate-y-0.5 hover:shadow-sm animate-fade-in-up"
                 style={{ animationDelay: `${550 + i * 80}ms` }}
               >
-                <p className="text-xs text-gray-400 mb-1">{label}</p>
+                <p className="text-xs text-gray-400 mb-1 whitespace-nowrap">{label}</p>
                 <p className="text-xl font-semibold text-gray-900">{value}</p>
               </div>
             ))}
@@ -313,21 +313,25 @@ export default function LandingPage() {
             ].map((row, i) => (
               <div
                 key={i}
-                className={`flex items-center flex-wrap gap-x-3 gap-y-1 px-4 py-2.5 text-xs transition-colors hover:bg-gray-50 animate-fade-in-up ${i < 2 ? "border-b border-gray-50" : ""}`}
+                className={`px-4 py-2.5 text-xs transition-colors hover:bg-gray-50 animate-fade-in-up ${i < 2 ? "border-b border-gray-50" : ""}`}
                 style={{ animationDelay: `${900 + i * 80}ms` }}
               >
-                <span className="font-medium text-gray-800 whitespace-nowrap">{row.name}</span>
-                <span className="text-gray-400 whitespace-nowrap">{row.time}</span>
-                <span className="text-gray-500 whitespace-nowrap sm:flex-1">{row.reason}</span>
-                <span className={`ml-auto px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
-                  row.status === "confirmed"
-                    ? "bg-teal-50 text-teal-700"
-                    : "bg-amber-50 text-amber-700"
-                }`}>
-                  {row.status === "confirmed"
-                    ? lang === "ja" ? "確定" : "Confirmed"
-                    : lang === "ja" ? "要確認" : "Review"}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-gray-800 truncate">{row.name}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                    row.status === "confirmed"
+                      ? "bg-teal-50 text-teal-700"
+                      : "bg-amber-50 text-amber-700"
+                  }`}>
+                    {row.status === "confirmed"
+                      ? lang === "ja" ? "確定" : "Confirmed"
+                      : lang === "ja" ? "要確認" : "Review"}
+                  </span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-3 text-gray-400">
+                  <span className="whitespace-nowrap">{row.time}</span>
+                  <span className="text-gray-500 truncate">{row.reason}</span>
+                </div>
               </div>
             ))}
           </div>
