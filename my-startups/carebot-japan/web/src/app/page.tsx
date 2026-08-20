@@ -313,13 +313,13 @@ export default function LandingPage() {
             ].map((row, i) => (
               <div
                 key={i}
-                className={`flex items-center justify-between px-4 py-2.5 text-xs transition-colors hover:bg-gray-50 animate-fade-in-up ${i < 2 ? "border-b border-gray-50" : ""}`}
+                className={`flex items-center flex-wrap gap-x-3 gap-y-1 px-4 py-2.5 text-xs transition-colors hover:bg-gray-50 animate-fade-in-up ${i < 2 ? "border-b border-gray-50" : ""}`}
                 style={{ animationDelay: `${900 + i * 80}ms` }}
               >
-                <span className="font-medium text-gray-800 w-28">{row.name}</span>
-                <span className="text-gray-400">{row.time}</span>
-                <span className="text-gray-500 flex-1 px-4">{row.reason}</span>
-                <span className={`px-2 py-0.5 rounded-full font-medium ${
+                <span className="font-medium text-gray-800 whitespace-nowrap">{row.name}</span>
+                <span className="text-gray-400 whitespace-nowrap">{row.time}</span>
+                <span className="text-gray-500 whitespace-nowrap sm:flex-1">{row.reason}</span>
+                <span className={`ml-auto px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
                   row.status === "confirmed"
                     ? "bg-teal-50 text-teal-700"
                     : "bg-amber-50 text-amber-700"
